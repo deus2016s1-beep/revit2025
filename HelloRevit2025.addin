@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Name>Hello Revit 2025</Name>
+    <Assembly>C:\RevitPlugins\HelloRevit2025\HelloRevit2025.dll</Assembly>
+    <AddInId>8F8D0DB7-A2DB-4F07-AAB2-4E7B35AB9E61</AddInId>
+    <FullClassName>HelloRevit2025.HelloRevitCommand</FullClassName>
+    <VendorId>LEARN</VendorId>
+    <VendorDescription>Minimal Revit 2025 add-in for learning</VendorDescription>
+  </AddIn>
+</RevitAddIns>
