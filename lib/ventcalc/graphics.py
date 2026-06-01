@@ -20,14 +20,14 @@ def clear_ids(doc, view, ids):
 
 
 def apply_critical_path(doc, view, ids):
+    fill_id = solid_fill_id(doc)
     transaction = DB.Transaction(doc, 'VentCalc critical path')
     transaction.Start()
     try:
         color = DB.Color(255, 0, 0)
         for element_id in ids:
             settings = DB.OverrideGraphicSettings()
-            settings.SetProjectionLineColor(color)
-            settings.SetProjectionLineWeight(8)
+            apply_color_settings(settings, color, 8, fill_id)
             view.SetElementOverrides(DB.ElementId(int(element_id)), settings)
         transaction.Commit()
     except Exception:
@@ -66,6 +66,7 @@ def velocity_color(value, settings):
 
 
 def apply_speed_highlight(doc, view, ducts, settings):
+    fill_id = solid_fill_id(doc)
     transaction = DB.Transaction(doc, 'VentCalc speed highlight')
     ids = []
     transaction.Start()
@@ -73,8 +74,7 @@ def apply_speed_highlight(doc, view, ducts, settings):
         for duct in ducts:
             velocity = duct_velocity(duct)
             graphic = DB.OverrideGraphicSettings()
-            graphic.SetProjectionLineColor(velocity_color(velocity, settings))
-            graphic.SetProjectionLineWeight(6)
+            apply_color_settings(graphic, velocity_color(velocity, settings), 6, fill_id)
             view.SetElementOverrides(duct.Id, graphic)
             ids.append(duct.Id.IntegerValue)
         transaction.Commit()

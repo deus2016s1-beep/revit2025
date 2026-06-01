@@ -27,7 +27,7 @@ CONTENT_TYPES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'''
 WORKBOOK = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Аэродинамический расчет" sheetId="1" r:id="rId1"/></sheets></workbook>'''
 WORKBOOK_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'''
-STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
+STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
 APP_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>VentCalc</Application></Properties>'''
 CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Аэродинамический расчет</dc:title><dc:creator>VentCalc</dc:creator></cp:coreProperties>'''
 
@@ -97,10 +97,12 @@ def worksheet_xml(result):
     xml = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>']
     xml.append('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">')
     xml.append('<dimension ref="' + dimension + '"/>')
+    xml.append('<sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>')
     xml.append(columns_xml())
     xml.append('<sheetData>')
     xml.extend(rows)
     xml.append('</sheetData>')
+    xml.append('<autoFilter ref="A2:R' + str(row_number) + '"/>')
     xml.append('<mergeCells count="1"><mergeCell ref="A1:R1"/></mergeCells>')
     xml.append('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>')
     xml.append('<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
@@ -160,13 +162,13 @@ def headers_list():
 
 
 def row_values(row):
-    return [row.get('index', 0), row.get('section', ''), row.get('name', ''), row.get('size', ''), round_value(row.get('flow_m3h', 0.0)), round_value(row.get('length_m', 0.0)), round_value(row.get('area_m2', 0.0)), round_value(row.get('diameter_m', 0.0)), round_value(row.get('velocity_ms', 0.0)), round_value(row.get('re', 0.0)), round_value(row.get('lambda', 0.0)), round_value(row.get('pv_pa', 0.0)), round_value(row.get('r_pa_m', 0.0)), round_value(row.get('friction_pa', 0.0)), round_value(row.get('local_zeta', 0.0)), round_value(row.get('local_pa', 0.0)), round_value(row.get('total_pa', 0.0)), row.get('note', '')]
+    return [row.get('index', 0), row.get('section', ''), row.get('name', ''), row.get('size', ''), round_value(row.get('flow_m3h', 0.0), 0), round_value(row.get('length_m', 0.0), 2), round_value(row.get('area_m2', 0.0), 4), round_value(row.get('diameter_m', 0.0), 3), round_value(row.get('velocity_ms', 0.0), 2), round_value(row.get('re', 0.0), 0), round_value(row.get('lambda', 0.0), 4), round_value(row.get('pv_pa', 0.0), 2), round_value(row.get('r_pa_m', 0.0), 2), round_value(row.get('friction_pa', 0.0), 2), round_value(row.get('local_zeta', 0.0), 3), round_value(row.get('local_pa', 0.0), 2), round_value(row.get('total_pa', 0.0), 2), row.get('note', '')]
 
 
 def total_values(result):
     totals = result.get('totals', {})
     reserve = round_value(totals.get('reserve_percent', 0.0))
-    return ['', u'ИТОГО', '', '', '', round_value(totals.get('length_m', 0.0)), '', '', '', '', '', '', '', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), u'с запасом ' + str(reserve) + u'%: ' + str(round_value(totals.get('total_with_reserve_pa', 0.0))) + u' Па']
+    return ['', u'ИТОГО', '', '', '', round_value(totals.get('length_m', 0.0), 2), '', '', '', '', '', '', '', round_value(totals.get('friction_pa', 0.0), 2), '', round_value(totals.get('local_pa', 0.0), 2), round_value(totals.get('total_pa', 0.0), 2), u'с запасом ' + str(reserve) + u'%: ' + str(round_value(totals.get('total_with_reserve_pa', 0.0), 2)) + u' Па']
 
 
 def write_csv(result, path):
@@ -189,8 +191,10 @@ def write_csv_line(stream, values):
     stream.write((';'.join(parts) + '\r\n').encode('utf-8'))
 
 
-def round_value(value):
+def round_value(value, digits=3):
     try:
-        return round(float(value), 3)
+        if digits == 0:
+            return int(round(float(value), 0))
+        return round(float(value), digits)
     except Exception:
         return value

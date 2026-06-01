@@ -126,6 +126,12 @@ def merge_dict(target, source):
 def remove_old_settings(settings):
     if isinstance(settings, dict) and 'friction_factor' in settings:
         del settings['friction_factor']
+    if isinstance(settings, dict) and 'reserve_percent' in settings:
+        try:
+            if float(settings.get('reserve_percent', 0.0)) <= 0.0:
+                settings['reserve_percent'] = DEFAULT_SETTINGS.get('reserve_percent', 15.0)
+        except Exception:
+            settings['reserve_percent'] = DEFAULT_SETTINGS.get('reserve_percent', 15.0)
     return settings
 
 

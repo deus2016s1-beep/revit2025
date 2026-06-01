@@ -73,7 +73,9 @@ def selected_system_ducts(doc):
     ducts = active_view_ducts(doc)
     selection = revit.get_selection()
     if not selection or len(selection) == 0:
-        return ducts
+        if forms.alert(u'Элемент системы не выбран. Применить подсветку к воздуховодам активного вида?', yes=True, no=True):
+            return ducts
+        return []
     selected = selection[0]
     system = revit_utils.system_name(selected)
     if not system:

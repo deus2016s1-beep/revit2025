@@ -193,7 +193,10 @@ def branch_zeta(fitting, parsed, recommended, previous_duct, next_duct):
     z_branch = parsed.get('z_branch', recommended.get('z_branch', 0.0))
     if previous_duct is None or next_duct is None:
         return max(z_pass, z_branch)
-    if is_pass_direction(fitting, previous_duct, next_duct):
+    direction = is_pass_direction(fitting, previous_duct, next_duct)
+    if direction is None:
+        return max(z_pass, z_branch)
+    if direction:
         return z_pass
     return z_branch
 
@@ -207,11 +210,11 @@ def is_pass_direction(fitting, previous_duct, next_duct):
     try:
         length = v1.GetLength() * v2.GetLength()
         if length <= 0:
-            return False
+            return None
         cos_value = v1.DotProduct(v2) / length
         return cos_value < -0.65
     except Exception:
-        return False
+        return None
 
 
 

@@ -59,6 +59,25 @@ def minimal_rows(rows):
     return result
 
 
+
+def print_candidate_table(output, result):
+    rows = []
+    for item in result.get('candidate_summaries', []):
+        rows.append([
+            item.get('start_element_id', ''),
+            item.get('start_name', ''),
+            item.get('sections_count', 0),
+            round(item.get('length_m', 0.0), 2),
+            round(item.get('friction_pa', 0.0), 2),
+            round(item.get('local_pa', 0.0), 2),
+            round(item.get('total_pa', 0.0), 2)
+        ])
+    output.print_md(u'## Кандидаты критической трассы')
+    if rows:
+        output.print_table(table_data=rows, columns=[u'Старт ElementId', u'Имя старта', u'Количество участков', u'Длина, м', u'Трение, Па', u'МС, Па', u'Итого, Па'])
+    else:
+        output.print_md(u'Кандидаты не найдены.')
+
 def main():
     output = script.get_output()
     selection = revit.get_selection()
@@ -70,6 +89,7 @@ def main():
     except Exception as error:
         forms.alert(config.unicode_text(error), title=u'Расчет воздуховодов')
         return
+    print_candidate_table(output, result)
     print_calculation_table(output, result)
     totals = result.get('totals', {})
     if totals.get('total_pa', 0.0) <= 0.0:

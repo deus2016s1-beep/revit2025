@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import math
+import re
 import Autodesk.Revit.DB as DB
 
 DUCT_CATEGORY = DB.BuiltInCategory.OST_DuctCurves
@@ -308,18 +309,78 @@ def connected_ducts(element, allowed_ids=None):
     return result
 
 
-def duct_area_m2(duct):
-    value = param_double(duct, ['Площадь', 'ADSK_Площадь', 'Area'], 0.0)
-    if value > 0:
-        return sqft_to_m2(value)
+def linear_param_to_m(value):
+    if value <= 0:
+        return 0.0
+    if value > 10.0:
+        return value / 1000.0
+    return feet_to_m(value)
+
+
+def size_number_to_m(value):
+    if value <= 0:
+        return 0.0
+    if value <= 10.0:
+        return value
+    return value / 1000.0
+
+
+def duct_dimensions_m(duct):
+    diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
     width = param_double(duct, ['Ширина', 'Width'], 0.0)
     height = param_double(duct, ['Высота', 'Height'], 0.0)
-    diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
     if diameter > 0:
-        d = feet_to_m(diameter)
-        return math.pi * d * d / 4.0
+        return linear_param_to_m(diameter), 0.0, 0.0
     if width > 0 and height > 0:
-        return feet_to_m(width) * feet_to_m(height)
+        return 0.0, linear_param_to_m(width), linear_param_to_m(height)
+    return parse_size_dimensions_m(duct_size_raw_text(duct))
+
+
+def duct_size_raw_text(duct):
+    values = [
+        param_text(duct, ['Размер', 'Size'], ''),
+        param_text(duct, ['ADSK_Размер', 'ADSK_Размер воздуховода'], ''),
+        element_name(duct),
+        type_name(duct)
+    ]
+    return ' '.join([value for value in values if value])
+
+
+def parse_size_dimensions_m(text):
+    if not text:
+        return 0.0, 0.0, 0.0
+    normalized = text.lower()
+    normalized = normalized.replace(',', '.')
+    normalized = normalized.replace(u'×', 'x')
+    normalized = normalized.replace(u'х', 'x')
+    normalized = normalized.replace(u'Х', 'x')
+    normalized = normalized.replace('*', 'x')
+    normalized = normalized.replace(u'ø', 'd')
+    normalized = normalized.replace(u'Ø', 'd')
+    normalized = normalized.replace(u'ф', 'd')
+    normalized = normalized.replace(u'Ф', 'd')
+    rect_match = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*x\s*([0-9]+(?:\.[0-9]+)?)', normalized)
+    if rect_match:
+        width = size_number_to_m(float(rect_match.group(1)))
+        height = size_number_to_m(float(rect_match.group(2)))
+        return 0.0, width, height
+    diameter_match = re.search(r'd\s*([0-9]+(?:\.[0-9]+)?)', normalized)
+    if diameter_match:
+        return size_number_to_m(float(diameter_match.group(1))), 0.0, 0.0
+    numbers = re.findall(r'[0-9]+(?:\.[0-9]+)?', normalized)
+    if len(numbers) >= 2 and ('x' in normalized):
+        return 0.0, size_number_to_m(float(numbers[0])), size_number_to_m(float(numbers[1]))
+    if len(numbers) >= 1:
+        return size_number_to_m(float(numbers[0])), 0.0, 0.0
+    return 0.0, 0.0, 0.0
+
+
+def duct_area_m2(duct):
+    diameter, width, height = duct_dimensions_m(duct)
+    if diameter > 0:
+        return math.pi * diameter * diameter / 4.0
+    if width > 0 and height > 0:
+        return width * height
     return 0.0
 
 
@@ -341,19 +402,11 @@ def duct_flow_m3s(duct):
 
 
 def hydraulic_diameter_m(duct):
-    area = duct_area_m2(duct)
-    width = param_double(duct, ['Ширина', 'Width'], 0.0)
-    height = param_double(duct, ['Высота', 'Height'], 0.0)
-    diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
+    diameter, width, height = duct_dimensions_m(duct)
     if diameter > 0:
-        return feet_to_m(diameter)
-    if width > 0 and height > 0:
-        w = feet_to_m(width)
-        h = feet_to_m(height)
-        if w + h > 0:
-            return 2.0 * w * h / (w + h)
-    if area > 0:
-        return math.sqrt(4.0 * area / math.pi)
+        return diameter
+    if width > 0 and height > 0 and width + height > 0:
+        return 2.0 * width * height / (width + height)
     return 0.0
 
 
@@ -366,14 +419,36 @@ def system_name(element):
 
 
 def duct_size_text(duct):
-    diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
-    width = param_double(duct, ['Ширина', 'Width'], 0.0)
-    height = param_double(duct, ['Высота', 'Height'], 0.0)
+    diameter, width, height = duct_dimensions_m(duct)
     if diameter > 0:
-        return unicode_mm(feet_to_m(diameter) * 1000.0)
+        return unicode_mm(diameter * 1000.0)
     if width > 0 and height > 0:
-        return unicode_mm(feet_to_m(width) * 1000.0) + 'x' + unicode_mm(feet_to_m(height) * 1000.0)
+        return unicode_mm(width * 1000.0) + 'x' + unicode_mm(height * 1000.0)
     return param_text(duct, ['Размер', 'Size'], '')
+
+
+def duct_shape_name(duct):
+    diameter, width, height = duct_dimensions_m(duct)
+    if width > 0 and height > 0:
+        return u'Прямоугольный воздуховод'
+    if diameter > 0:
+        return u'Круглый воздуховод'
+    size = duct_size_text(duct).lower()
+    if 'x' in size or u'×' in size or u'х' in size:
+        return u'Прямоугольный воздуховод'
+    return u'Круглый воздуховод'
+
+
+def sanity_velocity(size_text, flow_m3h):
+    diameter, width, height = parse_size_dimensions_m(size_text)
+    area = 0.0
+    if diameter > 0:
+        area = math.pi * diameter * diameter / 4.0
+    elif width > 0 and height > 0:
+        area = width * height
+    if area <= 0:
+        return 0.0
+    return (flow_m3h / 3600.0) / area
 
 
 def unicode_mm(value):

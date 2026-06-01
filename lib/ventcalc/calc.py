@@ -82,7 +82,7 @@ def duct_row(duct, index, settings):
         'section': str(index) + '-' + str(index + 1),
         'duct_id': duct.Id.IntegerValue,
         'element_ids': [duct.Id.IntegerValue],
-        'name': revit_utils.element_name(duct) or revit_utils.type_name(duct),
+        'name': revit_utils.duct_shape_name(duct),
         'system': revit_utils.system_name(duct),
         'size': revit_utils.duct_size_text(duct),
         'local_zeta': 0.0,
@@ -114,6 +114,8 @@ def calculate(doc, selected_ids=None, start_path=None):
     if not critical:
         raise Exception(u'Критическая трасса до выбранного конечного элемента не найдена. Проверьте соединения воздуховодов и фитингов')
     reserve_percent = config.to_float(settings.get('reserve_percent', 15.0), 15.0)
+    if reserve_percent <= 0.0:
+        reserve_percent = 15.0
     rows = critical.get('rows', [])
     for row in rows:
         row['total_pa'] = row.get('friction_pa', 0.0) + row.get('local_pa', 0.0)
@@ -133,10 +135,29 @@ def calculate(doc, selected_ids=None, start_path=None):
         'start_element_name': element_display_name(data, start_id),
         'end_element_id': selected_end_id,
         'end_element_name': element_display_name(data, selected_end_id),
-        'diagnostics': make_diagnostics(data, starts, critical, rows, totals)
+        'diagnostics': make_diagnostics(data, starts, critical, rows, totals),
+        'candidate_summaries': candidate_summaries(paths, data)
     }
     return result
 
+
+
+def candidate_summaries(paths, data):
+    result = []
+    for item in paths:
+        start_id = item.get('start_element_id')
+        rows = item.get('rows', [])
+        totals = make_totals(rows, 0.0)
+        result.append({
+            'start_element_id': start_id,
+            'start_name': element_display_name(data, start_id),
+            'sections_count': len(rows),
+            'length_m': totals.get('length_m', 0.0),
+            'friction_pa': totals.get('friction_pa', 0.0),
+            'local_pa': totals.get('local_pa', 0.0),
+            'total_pa': totals.get('total_pa', 0.0)
+        })
+    return result
 
 def selected_element_id(selected_ids):
     if not selected_ids:

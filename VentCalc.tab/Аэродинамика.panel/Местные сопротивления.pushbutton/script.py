@@ -48,7 +48,7 @@ class ZetaForm(Form):
     def __init__(self, store):
         Form.__init__(self)
         self.Text = u'Местные сопротивления'
-        self.Size = Size(560, 720)
+        self.Size = Size(620, 720)
         self.StartPosition = FormStartPosition.CenterScreen
         self.inputs = {}
         title = Label()
@@ -59,16 +59,21 @@ class ZetaForm(Form):
         header1 = Label()
         header1.Text = u'Тип'
         header1.Location = Point(20, 50)
-        header1.Size = Size(250, 22)
+        header1.Size = Size(220, 22)
         self.Controls.Add(header1)
         header2 = Label()
-        header2.Text = u'Рекомендовано / пользовательское значение'
-        header2.Location = Point(285, 50)
-        header2.Size = Size(240, 22)
+        header2.Text = u'Рекомендуется'
+        header2.Location = Point(270, 50)
+        header2.Size = Size(120, 22)
         self.Controls.Add(header2)
+        header3 = Label()
+        header3.Text = u'Ваше значение'
+        header3.Location = Point(420, 50)
+        header3.Size = Size(140, 22)
+        self.Controls.Add(header3)
         panel = Panel()
         panel.Location = Point(12, 76)
-        panel.Size = Size(520, 540)
+        panel.Size = Size(580, 540)
         panel.AutoScroll = True
         self.Controls.Add(panel)
         y = 0
@@ -77,23 +82,28 @@ class ZetaForm(Form):
             label = Label()
             label.Text = caption
             label.Location = Point(4, y + 3)
-            label.Size = Size(250, 22)
+            label.Size = Size(240, 22)
             panel.Controls.Add(label)
+            recommended = Label()
+            recommended.Text = zeta.format_number(default_value(section, subkey, value_key))
+            recommended.Location = Point(258, y + 3)
+            recommended.Size = Size(90, 22)
+            panel.Controls.Add(recommended)
             box = TextBox()
             box.Text = zeta.format_number(store_value(store, section, subkey, value_key))
-            box.Location = Point(270, y)
+            box.Location = Point(408, y)
             box.Size = Size(90, 22)
             panel.Controls.Add(box)
             self.inputs[item_key] = box
             y += 28
         ok = Button()
         ok.Text = u'Добавить'
-        ok.Location = Point(340, 630)
+        ok.Location = Point(400, 630)
         ok.Size = Size(90, 28)
         ok.DialogResult = DialogResult.OK
         cancel = Button()
         cancel.Text = u'Отмена'
-        cancel.Location = Point(440, 630)
+        cancel.Location = Point(500, 630)
         cancel.Size = Size(90, 28)
         cancel.DialogResult = DialogResult.Cancel
         self.Controls.Add(ok)
@@ -111,10 +121,16 @@ class ZetaForm(Form):
                 store.setdefault(section, {})[value_key] = value
 
 
+def default_value(section, subkey, value_key):
+    if section == 'elbow':
+        return config.DEFAULT_ZETA.get('elbow', {}).get(subkey, 0.0)
+    return config.DEFAULT_ZETA.get(section, {}).get(value_key, 0.0)
+
+
 def store_value(store, section, subkey, value_key):
     if section == 'elbow':
-        return store.get('elbow', {}).get(subkey, config.DEFAULT_ZETA.get('elbow', {}).get(subkey, 0.0))
-    return store.get(section, {}).get(value_key, config.DEFAULT_ZETA.get(section, {}).get(value_key, 0.0))
+        return store.get('elbow', {}).get(subkey, default_value(section, subkey, value_key))
+    return store.get(section, {}).get(value_key, default_value(section, subkey, value_key))
 
 
 def collect_target_elements(doc):
