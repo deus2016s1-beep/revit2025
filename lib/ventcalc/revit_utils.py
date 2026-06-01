@@ -141,8 +141,12 @@ def cfm_to_m3s(value):
     return value * 0.00047194745
 
 
+def cfs_to_m3s(value):
+    return value * 0.028316846592
+
+
 def internal_flow_to_m3s(value):
-    return cfm_to_m3s(value)
+    return cfs_to_m3s(value)
 
 
 def angle_to_degrees(value):

@@ -7,7 +7,6 @@ lib_path = os.path.join(extension_root, 'lib')
 if lib_path not in sys.path:
     sys.path.append(lib_path)
 
-import Autodesk.Revit.DB as DB
 from pyrevit import revit, script
 from ventcalc import network
 from ventcalc import revit_utils
@@ -83,32 +82,6 @@ def check_breaks(doc, issues):
             add_issue(issues, u'Предупреждение', element, u'Элемент подключен только к одному воздуховоду', u'Проверить возможный разрыв сети')
 
 
-def apply_highlight(doc, view, issues):
-    transaction = DB.Transaction(doc, 'VentCalc check graphics')
-    transaction.Start()
-    try:
-        red = DB.Color(255, 0, 0)
-        yellow = DB.Color(255, 210, 0)
-        handled = set()
-        for issue in issues:
-            element_id_value = issue.element.Id.IntegerValue
-            if element_id_value in handled and issue.status != u'Ошибка':
-                continue
-            settings = DB.OverrideGraphicSettings()
-            if issue.status == u'Ошибка':
-                settings.SetProjectionLineColor(red)
-                settings.SetProjectionLineWeight(8)
-            else:
-                settings.SetProjectionLineColor(yellow)
-                settings.SetProjectionLineWeight(6)
-            view.SetElementOverrides(issue.element.Id, settings)
-            handled.add(element_id_value)
-        transaction.Commit()
-    except Exception:
-        transaction.RollBack()
-        raise
-
-
 def table_rows(output, issues):
     rows = []
     for issue in issues:
@@ -131,11 +104,6 @@ def main():
     ducts = check_ducts(revit.doc, issues)
     elements = check_elements(revit.doc, issues)
     check_breaks(revit.doc, issues)
-    if issues:
-        try:
-            apply_highlight(revit.doc, revit.active_view, issues)
-        except Exception:
-            pass
     errors = len([issue for issue in issues if issue.status == u'Ошибка'])
     warnings = len([issue for issue in issues if issue.status != u'Ошибка'])
     output.print_md(u'## Проверка системы VentCalc')

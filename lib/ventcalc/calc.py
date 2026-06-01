@@ -104,7 +104,8 @@ def calculate(doc, selected_ids=None, start_path=None):
     end_duct_ids = network.endpoint_duct_ids(data, end_element)
     if not end_duct_ids:
         raise Exception(u'Выбранный элемент не подключен к воздуховоду')
-    path = choose_path(data, end_duct_ids, settings, zeta_data)
+    candidates = path_candidates(data, end_duct_ids)
+    path = choose_path(data, end_duct_ids, settings, zeta_data, candidates)
     if not path:
         raise Exception(u'Критическая трасса до выбранного конечного элемента не найдена. Проверьте соединения воздуховодов и фитингов')
     rows, fitting_ids = make_rows(path, data, settings, zeta_data)
@@ -121,6 +122,7 @@ def calculate(doc, selected_ids=None, start_path=None):
         'total_with_reserve_pa': sum([row.get('total_with_reserve_pa', 0.0) for row in rows]),
         'reserve_percent': reserve_percent
     }
+    diagnostics = make_diagnostics(data, end_duct_ids, candidates, path, rows, totals)
     return {
         'rows': rows,
         'totals': totals,
@@ -128,9 +130,31 @@ def calculate(doc, selected_ids=None, start_path=None):
         'critical_path': path,
         'critical_duct_ids': path,
         'critical_fitting_ids': fitting_ids,
-        'end_element_id': end_element.Id.IntegerValue
+        'end_element_id': end_element.Id.IntegerValue,
+        'diagnostics': diagnostics
     }
 
+
+
+def make_diagnostics(data, end_duct_ids, candidates, path, rows, totals):
+    first_rows = []
+    for row in rows[:5]:
+        first_rows.append({
+            'duct_id': row.get('duct_id'),
+            'flow_m3s': row.get('flow_m3s', 0.0),
+            'velocity_ms': row.get('velocity_ms', 0.0),
+            'friction_pa': row.get('friction_pa', 0.0)
+        })
+    return {
+        'ducts_count': len(data.get('ducts', {})),
+        'end_duct_ids': end_duct_ids,
+        'candidates_count': len(candidates),
+        'best_path_len': len(path),
+        'friction_pa': totals.get('friction_pa', 0.0),
+        'local_pa': totals.get('local_pa', 0.0),
+        'total_pa': totals.get('total_pa', 0.0),
+        'first_rows': first_rows
+    }
 
 def selected_end_element(doc, selected_ids):
     if not selected_ids:
@@ -152,7 +176,7 @@ def DBElementId(value):
     return DB.ElementId(value)
 
 
-def choose_path(data, end_duct_ids, settings, zeta_data):
+def path_candidates(data, end_duct_ids):
     graph = data['graph']
     candidates = network.terminal_start_duct_ids(data, end_duct_ids)
     if not candidates:
@@ -160,6 +184,13 @@ def choose_path(data, end_duct_ids, settings, zeta_data):
             for duct_id in component:
                 if duct_id not in end_duct_ids and len(graph.get(duct_id, [])) <= 1:
                     candidates.append(duct_id)
+    return candidates
+
+
+def choose_path(data, end_duct_ids, settings, zeta_data, candidates=None):
+    graph = data['graph']
+    if candidates is None:
+        candidates = path_candidates(data, end_duct_ids)
     best_path = []
     best_pressure = -1.0
     for start_id in candidates:
