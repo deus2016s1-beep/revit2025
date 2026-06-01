@@ -65,7 +65,7 @@ def has_zero_value(values):
             if abs(float(values[key])) < 0.000001:
                 return True
         except Exception:
-            pass
+            continue
     return False
 
 

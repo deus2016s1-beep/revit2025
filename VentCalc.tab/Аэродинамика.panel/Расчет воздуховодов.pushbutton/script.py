@@ -14,26 +14,29 @@ from ventcalc import excel
 from ventcalc import graphics
 
 
-def print_diagnostics(output, result):
-    diagnostics = result.get('diagnostics', {})
-    output.print_md(u'## VentCalc diagnostics')
-    output.print_md(u'* ducts_count: ' + str(diagnostics.get('ducts_count', 0)))
-    output.print_md(u'* end_duct_ids: ' + str(diagnostics.get('end_duct_ids', [])))
-    output.print_md(u'* candidates_count: ' + str(diagnostics.get('candidates_count', 0)))
-    output.print_md(u'* best_path_len: ' + str(diagnostics.get('best_path_len', 0)))
-    output.print_md(u'* friction_pa: ' + str(round(diagnostics.get('friction_pa', 0.0), 3)))
-    output.print_md(u'* local_pa: ' + str(round(diagnostics.get('local_pa', 0.0), 3)))
-    output.print_md(u'* total_pa: ' + str(round(diagnostics.get('total_pa', 0.0), 3)))
+def print_calculation_table(output, result):
     rows = []
-    for row in diagnostics.get('first_rows', []):
+    for row in result.get('rows', []):
         rows.append([
-            row.get('duct_id', ''),
-            round(row.get('flow_m3s', 0.0), 6),
-            round(row.get('velocity_ms', 0.0), 3),
-            round(row.get('friction_pa', 0.0), 3)
+            row.get('section', ''),
+            row.get('size', ''),
+            round(row.get('flow_m3h', 0.0), 1),
+            round(row.get('length_m', 0.0), 2),
+            round(row.get('velocity_ms', 0.0), 2),
+            round(row.get('re', 0.0), 0),
+            round(row.get('lambda', 0.0), 4),
+            round(row.get('pv_pa', 0.0), 2),
+            round(row.get('r_pa_m', 0.0), 2),
+            round(row.get('friction_pa', 0.0), 2),
+            round(row.get('local_zeta', 0.0), 3),
+            round(row.get('local_pa', 0.0), 2),
+            round(row.get('total_pa', 0.0), 2)
         ])
+    output.print_md(u'## Критическая трасса VentCalc')
     if rows:
-        output.print_table(table_data=rows, columns=[u'duct_id', u'flow_m3s', u'velocity_ms', u'friction_pa'])
+        output.print_table(table_data=rows, columns=[u'Участок', u'Размер', u'Расход м³/ч', u'Длина', u'Скорость', u'Re', u'λ', u'Pv', u'R', u'R·l', u'Σζ', u'Z', u'ΔP'])
+    else:
+        output.print_md(u'Расчетные участки не найдены.')
 
 
 def main():
@@ -47,7 +50,7 @@ def main():
     except Exception as error:
         forms.alert(config.unicode_text(error), title=u'Расчет воздуховодов')
         return
-    print_diagnostics(output, result)
+    print_calculation_table(output, result)
     totals = result.get('totals', {})
     if totals.get('total_pa', 0.0) <= 0.0:
         forms.alert(u'Трасса найдена, но потери равны 0. Проверь расход/размеры воздуховодов.', title=u'Расчет воздуховодов')
@@ -64,9 +67,20 @@ def main():
         message = u'Ошибка подсветки критической трассы: ' + config.unicode_text(error)
         output.print_md(message)
         forms.alert(message, title=u'Расчет воздуховодов')
-    message = u'Расчет выполнен\nСумма: ' + str(round(totals.get('total_pa', 0.0), 2)) + u' Па\nС запасом: ' + str(round(totals.get('total_with_reserve_pa', 0.0), 2)) + u' Па'
+    reserve = totals.get('reserve_percent', 0.0)
+    message = u'Расчет выполнен'
+    message += u'\nСтарт: ElementId ' + str(result.get('start_element_id', ''))
+    message += u'\nКонец: ElementId ' + str(result.get('end_element_id', ''))
+    message += u'\nУчастков: ' + str(len(result.get('rows', [])))
+    message += u'\nДлина: ' + str(round(totals.get('length_m', 0.0), 2)) + u' м'
+    message += u'\nТрение: ' + str(round(totals.get('friction_pa', 0.0), 2)) + u' Па'
+    message += u'\nМС: ' + str(round(totals.get('local_pa', 0.0), 2)) + u' Па'
+    message += u'\nИтого: ' + str(round(totals.get('total_pa', 0.0), 2)) + u' Па'
+    message += u'\nС запасом ' + str(round(reserve, 2)) + u'%: ' + str(round(totals.get('total_with_reserve_pa', 0.0), 2)) + u' Па'
     if path:
         message += u'\nФайл: ' + path
+    else:
+        message += u'\nФайл: не создан'
     forms.alert(message, title=u'Расчет воздуховодов')
 
 

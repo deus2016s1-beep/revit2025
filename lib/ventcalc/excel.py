@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import zipfile
+import datetime
 from xml.sax.saxutils import escape
 from ventcalc import config
 
@@ -33,8 +34,7 @@ CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreP
 
 def export_calculation(result, path=None):
     if path is None:
-        filename = result.get('settings', {}).get('excel_filename', 'AerodynamicCalculation.xlsx')
-        path = config.data_path(filename)
+        path = config.data_path(default_filename(), result.get('settings_start_path'))
     folder = os.path.dirname(path)
     if folder and not os.path.exists(folder):
         os.makedirs(folder)
@@ -49,6 +49,11 @@ def export_calculation(result, path=None):
 
 def save_xlsx(result, path=None):
     return export_calculation(result, path)
+
+
+def default_filename():
+    stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    return u'VentCalc_Аэродинамический_расчет_' + stamp + '.xlsx'
 
 
 def write_xlsx(result, path):
@@ -81,16 +86,13 @@ def worksheet_xml(result):
     rows = []
     headers = headers_list()
     rows.append(row_xml(1, [u'Аэродинамический расчет системы вентиляции'], 1))
-    rows.append(row_xml(2, [], 0))
-    rows.append(row_xml(3, headers, 2))
-    row_number = 4
+    rows.append(row_xml(2, headers, 2))
+    row_number = 3
     for row in result.get('rows', []):
         rows.append(row_xml(row_number, row_values(row), 3))
         row_number += 1
-    totals = result.get('totals', {})
-    total_values = ['', u'Итого', '', '', '', '', '', '', '', '', '', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), u'С запасом: ' + str(round_value(totals.get('total_with_reserve_pa', 0.0)))]
-    rows.append(row_xml(row_number, total_values, 4))
-    dimension = 'A1:P' + str(row_number)
+    rows.append(row_xml(row_number, total_values(result), 4))
+    dimension = 'A1:R' + str(row_number)
     xml = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>']
     xml.append('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">')
     xml.append('<dimension ref="' + dimension + '"/>')
@@ -98,7 +100,7 @@ def worksheet_xml(result):
     xml.append('<sheetData>')
     xml.extend(rows)
     xml.append('</sheetData>')
-    xml.append('<mergeCells count="1"><mergeCell ref="A1:P1"/></mergeCells>')
+    xml.append('<mergeCells count="1"><mergeCell ref="A1:R1"/></mergeCells>')
     xml.append('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>')
     xml.append('<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
     xml.append('</worksheet>')
@@ -106,7 +108,7 @@ def worksheet_xml(result):
 
 
 def columns_xml():
-    widths = [6, 24, 14, 12, 10, 10, 10, 10, 12, 10, 10, 12, 8, 10, 10, 35]
+    widths = [6, 10, 26, 14, 13, 10, 12, 10, 12, 12, 9, 10, 10, 10, 8, 10, 10, 42]
     parts = ['<cols>']
     for index in range(len(widths)):
         col = str(index + 1)
@@ -153,11 +155,17 @@ def number_text(value):
 
 
 def headers_list():
-    return [u'№', u'Участок', u'Размер', u'Расход, м³/с', u'Длина, м', u'Площадь, м²', u'dэкв, м', u'Скорость, м/с', u'Re', u'λ', u'R, Па/м', u'R·l, Па', u'Σζ', u'Z, Па', u'ΔP, Па', u'Примечание']
+    return [u'№', u'Участок', u'Наименование', u'Размер', u'Расход, м³/ч', u'Длина, м', u'Площадь, м²', u'dэкв, м', u'Скорость, м/с', u'Re', u'λ', u'Pv, Па', u'R, Па/м', u'R·l, Па', u'Σζ', u'Z, Па', u'ΔP, Па', u'Примечание']
 
 
 def row_values(row):
-    return [row.get('index', 0), row.get('name', ''), row.get('size', ''), round_value(row.get('flow_m3s', 0.0)), round_value(row.get('length_m', 0.0)), round_value(row.get('area_m2', 0.0)), round_value(row.get('diameter_m', 0.0)), round_value(row.get('velocity_ms', 0.0)), round_value(row.get('re', 0.0)), round_value(row.get('lambda', 0.0)), round_value(row.get('r_pa_m', 0.0)), round_value(row.get('friction_pa', 0.0)), round_value(row.get('local_zeta', 0.0)), round_value(row.get('local_pa', 0.0)), round_value(row.get('total_pa', 0.0)), row.get('note', '')]
+    return [row.get('index', 0), row.get('section', ''), row.get('name', ''), row.get('size', ''), round_value(row.get('flow_m3h', 0.0)), round_value(row.get('length_m', 0.0)), round_value(row.get('area_m2', 0.0)), round_value(row.get('diameter_m', 0.0)), round_value(row.get('velocity_ms', 0.0)), round_value(row.get('re', 0.0)), round_value(row.get('lambda', 0.0)), round_value(row.get('pv_pa', 0.0)), round_value(row.get('r_pa_m', 0.0)), round_value(row.get('friction_pa', 0.0)), round_value(row.get('local_zeta', 0.0)), round_value(row.get('local_pa', 0.0)), round_value(row.get('total_pa', 0.0)), row.get('note', '')]
+
+
+def total_values(result):
+    totals = result.get('totals', {})
+    reserve = round_value(totals.get('reserve_percent', 0.0))
+    return ['', u'ИТОГО', '', '', '', round_value(totals.get('length_m', 0.0)), '', '', '', '', '', '', '', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), u'с запасом ' + str(reserve) + u'%: ' + str(round_value(totals.get('total_with_reserve_pa', 0.0))) + u' Па']
 
 
 def write_csv(result, path):
@@ -167,6 +175,7 @@ def write_csv(result, path):
         write_csv_line(stream, headers_list())
         for row in result.get('rows', []):
             write_csv_line(stream, row_values(row))
+        write_csv_line(stream, total_values(result))
     finally:
         stream.close()
 

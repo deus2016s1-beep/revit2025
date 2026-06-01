@@ -6,12 +6,13 @@ DEFAULT_SETTINGS = {
     'air_density': 1.2,
     'dynamic_viscosity': 0.0000181,
     'roughness_mm': 0.1,
-    'min_velocity': 2.0,
-    'max_velocity': 8.0,
-    'reserve_percent': 10.0,
+    'min_velocity': 3.0,
+    'max_velocity': 5.0,
+    'reserve_percent': 15.0,
     'highlight_critical_path': True,
     'highlight_by_velocity': True,
     'ask_before_excel': True,
+    'last_highlight_ids': [],
     'excel_filename': 'AerodynamicCalculation.xlsx',
     'zeta_filename': 'ventcalc_zeta.json'
 }

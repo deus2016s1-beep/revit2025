@@ -69,13 +69,13 @@ def element_name(element):
         if name:
             return name
     except Exception:
-        pass
+        name = ''
     try:
         type_element = element.Document.GetElement(element.GetTypeId())
         if type_element:
             return type_element.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
     except Exception:
-        pass
+        return ''
     return ''
 
 
@@ -90,7 +90,7 @@ def type_name(element):
                     return value
             return type_element.Name
     except Exception:
-        pass
+        return ''
     return ''
 
 
@@ -102,13 +102,13 @@ def family_name(element):
             if value:
                 return value
     except Exception:
-        pass
+        type_element = None
     try:
         type_element = element.Document.GetElement(element.GetTypeId())
         if type_element and hasattr(type_element, 'Family') and type_element.Family:
             return type_element.Family.Name
     except Exception:
-        pass
+        return ''
     return ''
 
 
@@ -117,7 +117,7 @@ def category_name(element):
         if element.Category:
             return element.Category.Name
     except Exception:
-        pass
+        return ''
     return ''
 
 
@@ -226,7 +226,7 @@ def connectors(element):
     try:
         manager = element.ConnectorManager
     except Exception:
-        pass
+        manager = None
     if manager is None:
         try:
             manager = element.MEPModel.ConnectorManager
@@ -272,7 +272,7 @@ def element_center(element):
         if hasattr(location, 'Point') and location.Point:
             return location.Point
     except Exception:
-        pass
+        location = None
     bbox = element.get_BoundingBox(None)
     if bbox:
         return DB.XYZ((bbox.Min.X + bbox.Max.X) / 2.0, (bbox.Min.Y + bbox.Max.Y) / 2.0, (bbox.Min.Z + bbox.Max.Z) / 2.0)

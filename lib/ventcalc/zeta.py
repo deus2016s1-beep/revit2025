@@ -94,7 +94,7 @@ def fitting_kind(fitting):
         if u'оборуд' in category_name or 'equipment' in category_name:
             return 'equipment'
     except Exception:
-        pass
+        category_name = ''
     connector_count = len(revit_utils.connectors(fitting))
     if connector_count >= 4:
         return 'cross'
@@ -226,7 +226,7 @@ def is_normal_terminal(element):
         if u'оборуд' in category_name or 'equipment' in category_name:
             return True
     except Exception:
-        pass
+        return False
     return False
 
 def zero_allowed(fitting):
