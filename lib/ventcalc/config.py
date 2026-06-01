@@ -13,28 +13,63 @@ DEFAULT_SETTINGS = {
 DEFAULT_ZETA = {
     'elbow': {
         '15': 0.08,
-        '30': 0.16,
-        '45': 0.28,
-        '60': 0.42,
-        '90': 0.65
+        '30': 0.12,
+        '45': 0.18,
+        '60': 0.25,
+        '90': 0.35
     },
     'transition': {
-        'z_narrow': 0.35,
-        'z_expand': 0.25
+        'z_narrow': 0.10,
+        'z_expand': 0.20
     },
     'tee': {
-        'z_pass': 0.25,
-        'z_branch': 1.0
+        'z_pass': 0.30,
+        'z_branch': 1.20
     },
     'cross': {
-        'z_pass': 0.35,
-        'z_branch': 1.2
+        'z_pass': 0.50,
+        'z_branch': 1.50
+    },
+    'tap': {
+        'z': 1.20
+    },
+    'offset': {
+        'z': 0.40
+    },
+    'cap': {
+        'z': 0.00
+    },
+    'damper': {
+        'z': 0.40
+    },
+    'fire_damper': {
+        'z': 0.50
+    },
+    'backdraft_damper': {
+        'z': 2.00
+    },
+    'inlet': {
+        'z': 0.50
+    },
+    'outlet': {
+        'z': 1.00
+    },
+    'grille': {
+        'z': 2.00
+    },
+    'hood': {
+        'z': 1.30
+    },
+    'deflector': {
+        'z': 1.00
     },
     'other': {
-        'z': 0.5
+        'z': 0.50
+    },
+    'unknown': {
+        'z': 0.00
     }
 }
-
 
 def unicode_text(value):
     try:

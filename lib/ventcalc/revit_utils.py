@@ -4,6 +4,12 @@ import Autodesk.Revit.DB as DB
 
 DUCT_CATEGORY = DB.BuiltInCategory.OST_DuctCurves
 FITTING_CATEGORY = DB.BuiltInCategory.OST_DuctFitting
+AIR_ELEMENT_CATEGORIES = [
+    DB.BuiltInCategory.OST_DuctFitting,
+    DB.BuiltInCategory.OST_DuctAccessory,
+    DB.BuiltInCategory.OST_DuctTerminal,
+    DB.BuiltInCategory.OST_MechanicalEquipment
+]
 
 
 def get_param(element, names):
@@ -88,6 +94,33 @@ def type_name(element):
     return ''
 
 
+def family_name(element):
+    try:
+        type_element = element.Document.GetElement(element.GetTypeId())
+        if type_element and hasattr(type_element, 'FamilyName'):
+            value = type_element.FamilyName
+            if value:
+                return value
+    except Exception:
+        pass
+    try:
+        type_element = element.Document.GetElement(element.GetTypeId())
+        if type_element and hasattr(type_element, 'Family') and type_element.Family:
+            return type_element.Family.Name
+    except Exception:
+        pass
+    return ''
+
+
+def category_name(element):
+    try:
+        if element.Category:
+            return element.Category.Name
+    except Exception:
+        pass
+    return ''
+
+
 def comments(element):
     return param_text(element, ['Комментарии', 'Comment', 'Comments'], '')
 
@@ -149,6 +182,40 @@ def fittings(doc):
     return collector(doc, FITTING_CATEGORY)
 
 
+def air_network_elements(doc):
+    result = []
+    seen = set()
+    for category in AIR_ELEMENT_CATEGORIES:
+        try:
+            elements = collector(doc, category)
+        except Exception:
+            elements = []
+        for element in elements:
+            element_id_value = element.Id.IntegerValue
+            if element_id_value not in seen:
+                seen.add(element_id_value)
+                result.append(element)
+    return result
+
+
+def is_duct(element):
+    try:
+        return element.Category and element.Category.Id.IntegerValue == int(DUCT_CATEGORY)
+    except Exception:
+        return False
+
+
+def is_air_network_element(element):
+    try:
+        category_value = element.Category.Id.IntegerValue
+    except Exception:
+        return False
+    for category in AIR_ELEMENT_CATEGORIES:
+        if category_value == int(category):
+            return True
+    return False
+
+
 def connectors(element):
     result = []
     manager = None
@@ -175,6 +242,7 @@ def connectors(element):
 
 def connected_elements(element):
     result = []
+    seen = set()
     for connector in connectors(element):
         try:
             refs = connector.AllRefs
@@ -182,7 +250,8 @@ def connected_elements(element):
             refs = []
         for ref in refs:
             owner = ref.Owner
-            if owner and owner.Id.IntegerValue != element.Id.IntegerValue:
+            if owner and owner.Id.IntegerValue != element.Id.IntegerValue and owner.Id.IntegerValue not in seen:
+                seen.add(owner.Id.IntegerValue)
                 result.append(owner)
     return result
 
@@ -211,7 +280,7 @@ def nearest_connected_duct(fitting, duct_ids=None):
     best_distance = None
     center = element_center(fitting)
     for element in connected_elements(fitting):
-        if element.Category and element.Category.Id.IntegerValue == int(DUCT_CATEGORY):
+        if is_duct(element):
             if duct_ids and element.Id.IntegerValue not in duct_ids:
                 continue
             item_distance = distance(center, element_center(element))
@@ -219,6 +288,20 @@ def nearest_connected_duct(fitting, duct_ids=None):
                 best = element
                 best_distance = item_distance
     return best
+
+
+def connected_ducts(element, allowed_ids=None):
+    result = []
+    seen = set()
+    for connected in connected_elements(element):
+        if is_duct(connected):
+            element_id_value = connected.Id.IntegerValue
+            if allowed_ids and element_id_value not in allowed_ids:
+                continue
+            if element_id_value not in seen:
+                seen.add(element_id_value)
+                result.append(connected)
+    return result
 
 
 def duct_area_m2(duct):

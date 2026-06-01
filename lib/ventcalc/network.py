@@ -12,7 +12,7 @@ def is_duct(element):
 
 
 def is_fitting(element):
-    return element.Category and element.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_DuctFitting)
+    return revit_utils.is_air_network_element(element)
 
 
 def collect_network(doc, selected_ids=None):
@@ -22,7 +22,7 @@ def collect_network(doc, selected_ids=None):
         if selected_ids and duct.Id.IntegerValue not in selected_ids:
             continue
         ducts[element_key(duct)] = duct
-    for fitting in revit_utils.fittings(doc):
+    for fitting in revit_utils.air_network_elements(doc):
         fittings[element_key(fitting)] = fitting
     graph = {}
     edges = {}

@@ -4,6 +4,7 @@ from ventcalc import config
 from ventcalc import revit_utils
 
 KEYS = ['z_narrow', 'z_expand', 'z_pass', 'z_branch', 'zeta', 'z']
+SIMPLE_KINDS = ['tap', 'offset', 'cap', 'damper', 'fire_damper', 'backdraft_damper', 'inlet', 'outlet', 'grille', 'hood', 'deflector', 'other', 'unknown']
 
 
 def parse_comment(text):
@@ -18,21 +19,28 @@ def parse_comment(text):
     return result
 
 
+def has_zeta_values(element):
+    values = parse_comment(revit_utils.comments(element))
+    for key in KEYS:
+        if key in values:
+            return True
+    return False
+
+
 def format_comment(kind, values):
-    if kind == 'elbow':
-        return 'z=' + format_number(values.get('z', 0.0))
     if kind == 'transition':
         return 'z_narrow=' + format_number(values.get('z_narrow', 0.0)) + '; z_expand=' + format_number(values.get('z_expand', 0.0))
-    if kind == 'tee':
-        return 'z_pass=' + format_number(values.get('z_pass', 0.0)) + '; z_branch=' + format_number(values.get('z_branch', 0.0))
-    if kind == 'cross':
+    if kind == 'tee' or kind == 'cross':
         return 'z_pass=' + format_number(values.get('z_pass', 0.0)) + '; z_branch=' + format_number(values.get('z_branch', 0.0))
     return 'z=' + format_number(values.get('z', 0.0))
 
 
 def format_number(value):
-    text = ('%.3f' % float(value)).rstrip('0').rstrip('.')
-    if text == '':
+    try:
+        text = ('%.3f' % float(value)).rstrip('0').rstrip('.')
+    except Exception:
+        text = '0'
+    if text == '' or text == '-0':
         return '0'
     return text
 
@@ -42,6 +50,8 @@ def fitting_text(fitting):
         revit_utils.param_text(fitting, ['ADSK_Наименование', 'Наименование', 'Name'], ''),
         revit_utils.element_name(fitting),
         revit_utils.type_name(fitting),
+        revit_utils.family_name(fitting),
+        revit_utils.category_name(fitting),
         revit_utils.comments(fitting)
     ]
     return ' '.join([part.lower() for part in parts if part])
@@ -53,16 +63,40 @@ def fitting_kind(fitting):
         return 'cross'
     if contains_any(text, [u'трой', u'тройник', 'tee', 'wye']):
         return 'tee'
-    if contains_any(text, [u'переход', u'редук', 'transition', 'reducer']):
+    if contains_any(text, [u'переход', u'редук', u'сужен', u'расшир', 'transition', 'reducer']):
         return 'transition'
     if contains_any(text, [u'отвод', u'колен', 'elbow', 'bend']):
         return 'elbow'
+    if contains_any(text, [u'врез', 'tap']):
+        return 'tap'
+    if contains_any(text, [u'утк', 'offset']):
+        return 'offset'
+    if contains_any(text, [u'заглуш', 'cap', 'plug']):
+        return 'cap'
+    if contains_any(text, [u'противопожар', u'огнезадерж', 'fire damper', 'fire-damper']):
+        return 'fire_damper'
+    if contains_any(text, [u'обратн', 'backdraft', 'back draft', 'check valve']):
+        return 'backdraft_damper'
+    if contains_any(text, [u'дросс', u'клапан', 'damper', 'valve']):
+        return 'damper'
+    if contains_any(text, [u'решет', u'решёт', u'диффуз', 'diffuser', 'grille', 'grill', 'register']):
+        return 'grille'
+    if contains_any(text, [u'зонт', 'hood']):
+        return 'hood'
+    if contains_any(text, [u'дефлект', 'deflector']):
+        return 'deflector'
+    if contains_any(text, [u'вход', 'inlet', 'intake']):
+        return 'inlet'
+    if contains_any(text, [u'выход', u'выпуск', 'outlet', 'exhaust']):
+        return 'outlet'
     connector_count = len(revit_utils.connectors(fitting))
     if connector_count >= 4:
         return 'cross'
     if connector_count == 3:
         return 'tee'
-    return 'other'
+    if connector_count == 2:
+        return 'other'
+    return 'unknown'
 
 
 def contains_any(text, values):
@@ -90,31 +124,47 @@ def recommended_values(fitting, zeta_data=None):
     kind = fitting_kind(fitting)
     if kind == 'elbow':
         angle = elbow_angle(fitting)
-        return kind, {'z': zeta_data.get('elbow', {}).get(str(angle), 0.65), 'angle': angle}
+        return kind, {'z': zeta_data.get('elbow', {}).get(str(angle), config.DEFAULT_ZETA['elbow'].get(str(angle), 0.35)), 'angle': angle}
     if kind == 'transition':
         values = zeta_data.get('transition', {})
-        return kind, {'z_narrow': values.get('z_narrow', 0.35), 'z_expand': values.get('z_expand', 0.25)}
+        defaults = config.DEFAULT_ZETA.get('transition', {})
+        return kind, {'z_narrow': values.get('z_narrow', defaults.get('z_narrow', 0.10)), 'z_expand': values.get('z_expand', defaults.get('z_expand', 0.20))}
     if kind == 'tee':
         values = zeta_data.get('tee', {})
-        return kind, {'z_pass': values.get('z_pass', 0.25), 'z_branch': values.get('z_branch', 1.0)}
+        defaults = config.DEFAULT_ZETA.get('tee', {})
+        return kind, {'z_pass': values.get('z_pass', defaults.get('z_pass', 0.30)), 'z_branch': values.get('z_branch', defaults.get('z_branch', 1.20))}
     if kind == 'cross':
         values = zeta_data.get('cross', {})
-        return kind, {'z_pass': values.get('z_pass', 0.35), 'z_branch': values.get('z_branch', 1.2)}
-    values = zeta_data.get('other', {})
-    return kind, {'z': values.get('z', 0.5)}
+        defaults = config.DEFAULT_ZETA.get('cross', {})
+        return kind, {'z_pass': values.get('z_pass', defaults.get('z_pass', 0.50)), 'z_branch': values.get('z_branch', defaults.get('z_branch', 1.50))}
+    values = zeta_data.get(kind, {})
+    defaults = config.DEFAULT_ZETA.get(kind, config.DEFAULT_ZETA.get('other', {}))
+    return kind, {'z': values.get('z', defaults.get('z', 0.0))}
 
 
 def fitting_zeta(fitting, previous_duct=None, next_duct=None, zeta_data=None):
     kind, recommended = recommended_values(fitting, zeta_data)
     parsed = parse_comment(revit_utils.comments(fitting))
-    if parsed.get('z') is not None:
-        return parsed.get('z')
-    if parsed.get('zeta') is not None:
-        return parsed.get('zeta')
     if kind == 'transition':
+        if 'z_narrow' in parsed or 'z_expand' in parsed:
+            return transition_zeta(parsed, recommended, previous_duct, next_duct)
+        if 'z' in parsed:
+            return parsed.get('z')
+        if 'zeta' in parsed:
+            return parsed.get('zeta')
         return transition_zeta(parsed, recommended, previous_duct, next_duct)
     if kind == 'tee' or kind == 'cross':
+        if 'z_pass' in parsed or 'z_branch' in parsed:
+            return branch_zeta(fitting, parsed, recommended, previous_duct, next_duct)
+        if 'z' in parsed:
+            return parsed.get('z')
+        if 'zeta' in parsed:
+            return parsed.get('zeta')
         return branch_zeta(fitting, parsed, recommended, previous_duct, next_duct)
+    if 'z' in parsed:
+        return parsed.get('z')
+    if 'zeta' in parsed:
+        return parsed.get('zeta')
     return recommended.get('z', 0.0)
 
 
@@ -156,6 +206,10 @@ def is_pass_direction(fitting, previous_duct, next_duct):
         return cos_value < -0.65
     except Exception:
         return False
+
+
+def zero_allowed(fitting):
+    return fitting_kind(fitting) == 'cap'
 
 
 def apply_comment(fitting, zeta_data=None):

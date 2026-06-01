@@ -1,10 +1,63 @@
 # -*- coding: utf-8 -*-
 import os
-import clr
-clr.AddReference('Microsoft.Office.Interop.Excel')
-from Microsoft.Office.Interop import Excel
-from System.Runtime.InteropServices import Marshal
+import zipfile
+from xml.sax.saxutils import escape
 from ventcalc import config
+
+try:
+    unicode
+except NameError:
+    unicode = str
+try:
+    long
+except NameError:
+    long = int
+
+
+CONTENT_TYPES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>'''
+
+ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>'''
+
+WORKBOOK = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="Аэродинамический расчет" sheetId="1" r:id="rId1"/></sheets>
+</workbook>'''
+
+WORKBOOK_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>'''
+
+STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"/></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>'''
+
+APP_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>VentCalc</Application></Properties>'''
+
+CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Аэродинамический расчет</dc:title><dc:creator>VentCalc</dc:creator></cp:coreProperties>'''
 
 
 def export_calculation(result, path=None):
@@ -14,26 +67,124 @@ def export_calculation(result, path=None):
     folder = os.path.dirname(path)
     if folder and not os.path.exists(folder):
         os.makedirs(folder)
-    app = Excel.ApplicationClass()
-    app.Visible = False
-    workbook = None
     try:
-        workbook = app.Workbooks.Add()
-        sheet = workbook.Worksheets[1]
-        sheet.Name = u'Аэродинамический расчет'
-        write_sheet(sheet, result)
-        workbook.SaveAs(path)
+        write_xlsx(result, path)
         return path
+    except Exception:
+        csv_path = csv_fallback_path(path)
+        write_csv(result, csv_path)
+        return csv_path
+
+
+def write_xlsx(result, path):
+    archive = zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED)
+    try:
+        write_part(archive, '[Content_Types].xml', CONTENT_TYPES)
+        write_part(archive, '_rels/.rels', ROOT_RELS)
+        write_part(archive, 'xl/workbook.xml', WORKBOOK)
+        write_part(archive, 'xl/_rels/workbook.xml.rels', WORKBOOK_RELS)
+        write_part(archive, 'xl/styles.xml', STYLES)
+        write_part(archive, 'docProps/app.xml', APP_PROPS)
+        write_part(archive, 'docProps/core.xml', CORE_PROPS)
+        write_part(archive, 'xl/worksheets/sheet1.xml', worksheet_xml(result))
     finally:
-        if workbook:
-            workbook.Close(False)
-            Marshal.ReleaseComObject(workbook)
-        app.Quit()
-        Marshal.ReleaseComObject(app)
+        archive.close()
 
 
-def write_sheet(sheet, result):
-    headers = [
+def write_part(archive, name, text):
+    if isinstance(text, unicode):
+        text = text.encode('utf-8')
+    archive.writestr(name, text)
+
+
+def csv_fallback_path(path):
+    root, ext = os.path.splitext(path)
+    return root + '.csv'
+
+
+def worksheet_xml(result):
+    rows = []
+    headers = headers_list()
+    rows.append(row_xml(1, [u'Аэродинамический расчет системы вентиляции'], 1))
+    rows.append(row_xml(2, [], 0))
+    rows.append(row_xml(3, headers, 2))
+    row_number = 4
+    for row in result.get('rows', []):
+        rows.append(row_xml(row_number, row_values(row), 3))
+        row_number += 1
+    totals = result.get('totals', {})
+    total_values = ['', '', '', '', '', '', '', u'Итого', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), round_value(totals.get('total_with_reserve_pa', 0.0))]
+    rows.append(row_xml(row_number, total_values, 4))
+    note_row = row_number + 2
+    rows.append(row_xml(note_row, [u'Запас, %', round_value(totals.get('reserve_percent', 0.0))], 3))
+    dimension = 'A1:M' + str(note_row)
+    xml = []
+    xml.append('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+    xml.append('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">')
+    xml.append('<dimension ref="' + dimension + '"/>')
+    xml.append('<sheetViews><sheetView workbookViewId="0"/></sheetViews>')
+    xml.append('<sheetFormatPr defaultRowHeight="18"/>')
+    xml.append(columns_xml())
+    xml.append('<sheetData>')
+    xml.extend(rows)
+    xml.append('</sheetData>')
+    xml.append('<mergeCells count="1"><mergeCell ref="A1:M1"/></mergeCells>')
+    xml.append('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>')
+    xml.append('<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
+    xml.append('</worksheet>')
+    return '\n'.join(xml)
+
+
+def columns_xml():
+    widths = [10, 16, 28, 10, 12, 10, 10, 10, 12, 10, 12, 16, 16]
+    parts = ['<cols>']
+    for index in range(len(widths)):
+        col = str(index + 1)
+        width = str(widths[index])
+        parts.append('<col min="' + col + '" max="' + col + '" width="' + width + '" customWidth="1"/>')
+    parts.append('</cols>')
+    return ''.join(parts)
+
+
+def row_xml(row_number, values, style_index):
+    cells = []
+    for index in range(len(values)):
+        cells.append(cell_xml(row_number, index + 1, values[index], style_index))
+    return '<row r="' + str(row_number) + '">' + ''.join(cells) + '</row>'
+
+
+def cell_xml(row_number, column_number, value, style_index):
+    ref = column_name(column_number) + str(row_number)
+    style = ''
+    if style_index > 0:
+        style = ' s="' + str(style_index) + '"'
+    if value is None or value == '':
+        return '<c r="' + ref + '"' + style + '/>'
+    if is_number(value):
+        return '<c r="' + ref + '"' + style + '><v>' + number_text(value) + '</v></c>'
+    text = escape(config.unicode_text(value))
+    return '<c r="' + ref + '" t="inlineStr"' + style + '><is><t>' + text + '</t></is></c>'
+
+
+def column_name(number):
+    result = ''
+    while number > 0:
+        number -= 1
+        result = chr(65 + number % 26) + result
+        number = number // 26
+    return result
+
+
+def is_number(value):
+    return isinstance(value, int) or isinstance(value, long) or isinstance(value, float)
+
+
+def number_text(value):
+    return ('%.6f' % float(value)).rstrip('0').rstrip('.')
+
+
+def headers_list():
+    return [
         u'№ участка',
         u'Система',
         u'Наименование участка',
@@ -48,63 +199,46 @@ def write_sheet(sheet, result):
         u'Σ(R·l+Z), Па',
         u'С запасом, Па'
     ]
-    sheet.Cells(1, 1).Value2 = u'Аэродинамический расчет системы вентиляции'
-    title = sheet.Range(sheet.Cells(1, 1), sheet.Cells(1, len(headers)))
-    title.Merge()
-    title.Font.Bold = True
-    title.Font.Size = 14
-    title.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
-    for index, header in enumerate(headers):
-        cell = sheet.Cells(3, index + 1)
-        cell.Value2 = header
-        cell.Font.Bold = True
-        cell.Interior.Color = 14277081
-        cell.Borders.LineStyle = 1
-        cell.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter
-    row_number = 4
-    for row in result.get('rows', []):
-        values = [
-            row.get('index', 0),
-            row.get('system', ''),
-            row.get('name', ''),
-            round_value(row.get('length_m', 0.0)),
-            round_value(row.get('flow_m3s', 0.0)),
-            round_value(row.get('area_m2', 0.0)),
-            round_value(row.get('velocity_ms', 0.0)),
-            round_value(row.get('diameter_m', 0.0)),
-            round_value(row.get('friction_pa', 0.0)),
-            round_value(row.get('local_zeta', 0.0)),
-            round_value(row.get('local_pa', 0.0)),
-            round_value(row.get('total_pa', 0.0)),
-            round_value(row.get('total_with_reserve_pa', 0.0))
-        ]
-        for column, value in enumerate(values):
-            cell = sheet.Cells(row_number, column + 1)
-            cell.Value2 = value
-            cell.Borders.LineStyle = 1
-        row_number += 1
-    totals = result.get('totals', {})
-    sheet.Cells(row_number, 8).Value2 = u'Итого'
-    sheet.Cells(row_number, 8).Font.Bold = True
-    sheet.Cells(row_number, 9).Value2 = round_value(totals.get('friction_pa', 0.0))
-    sheet.Cells(row_number, 11).Value2 = round_value(totals.get('local_pa', 0.0))
-    sheet.Cells(row_number, 12).Value2 = round_value(totals.get('total_pa', 0.0))
-    sheet.Cells(row_number, 13).Value2 = round_value(totals.get('total_with_reserve_pa', 0.0))
-    for column in range(8, 14):
-        cell = sheet.Cells(row_number, column)
-        cell.Font.Bold = True
-        cell.Interior.Color = 13434879
-        cell.Borders.LineStyle = 1
-    note_row = row_number + 2
-    sheet.Cells(note_row, 1).Value2 = u'Запас, %'
-    sheet.Cells(note_row, 2).Value2 = round_value(totals.get('reserve_percent', 0.0))
-    sheet.Range(sheet.Cells(1, 1), sheet.Cells(note_row, len(headers))).Font.Name = 'Arial'
-    sheet.Range(sheet.Cells(1, 1), sheet.Cells(note_row, len(headers))).Font.Size = 10
-    sheet.Columns.AutoFit()
-    sheet.PageSetup.Orientation = Excel.XlPageOrientation.xlLandscape
-    sheet.PageSetup.Zoom = False
-    sheet.PageSetup.FitToPagesWide = 1
-    sheet.PageSetup.FitToPagesTall = False
+
+
+def row_values(row):
+    return [
+        row.get('index', 0),
+        row.get('system', ''),
+        row.get('name', ''),
+        round_value(row.get('length_m', 0.0)),
+        round_value(row.get('flow_m3s', 0.0)),
+        round_value(row.get('area_m2', 0.0)),
+        round_value(row.get('velocity_ms', 0.0)),
+        round_value(row.get('diameter_m', 0.0)),
+        round_value(row.get('friction_pa', 0.0)),
+        round_value(row.get('local_zeta', 0.0)),
+        round_value(row.get('local_pa', 0.0)),
+        round_value(row.get('total_pa', 0.0)),
+        round_value(row.get('total_with_reserve_pa', 0.0))
+    ]
+
+
+def write_csv(result, path):
+    stream = open(path, 'wb')
+    try:
+        stream.write('\xef\xbb\xbf'.encode('latin1'))
+        write_csv_line(stream, headers_list())
+        for row in result.get('rows', []):
+            write_csv_line(stream, row_values(row))
+        totals = result.get('totals', {})
+        write_csv_line(stream, ['', '', '', '', '', '', '', u'Итого', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), round_value(totals.get('total_with_reserve_pa', 0.0))])
+    finally:
+        stream.close()
+
+
+def write_csv_line(stream, values):
+    parts = []
+    for value in values:
+        text = config.unicode_text(value).replace('"', '""')
+        parts.append('"' + text + '"')
+    line = ';'.join(parts) + '\r\n'
+    stream.write(line.encode('utf-8'))
 
 
 def round_value(value):
