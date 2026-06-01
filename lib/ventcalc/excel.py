@@ -34,7 +34,8 @@ CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreP
 
 def export_calculation(result, path=None):
     if path is None:
-        path = config.data_path(default_filename(), result.get('settings_start_path'))
+        desktop = os.path.join(os.path.expanduser('~'), 'Desktop')
+        path = os.path.join(desktop, default_filename())
     folder = os.path.dirname(path)
     if folder and not os.path.exists(folder):
         os.makedirs(folder)

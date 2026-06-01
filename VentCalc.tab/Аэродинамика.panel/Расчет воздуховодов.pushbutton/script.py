@@ -11,7 +11,6 @@ from pyrevit import revit, forms, script
 from ventcalc import calc
 from ventcalc import config
 from ventcalc import excel
-from ventcalc import graphics
 
 
 def print_calculation_table(output, result):
@@ -39,6 +38,27 @@ def print_calculation_table(output, result):
         output.print_md(u'Расчетные участки не найдены.')
 
 
+def save_last_result(result, path):
+    data = {
+        'critical_path_ids': result.get('critical_path_ids', []),
+        'critical_duct_ids': result.get('critical_duct_ids', []),
+        'critical_fitting_ids': result.get('critical_fitting_ids', []),
+        'start_element_id': result.get('start_element_id'),
+        'end_element_id': result.get('end_element_id'),
+        'rows': minimal_rows(result.get('rows', [])),
+        'totals': result.get('totals', {}),
+        'excel_path': path
+    }
+    config.write_json(config.data_path('ventcalc_last_result.json', extension_root), data)
+
+
+def minimal_rows(rows):
+    result = []
+    for row in rows:
+        result.append({'duct_id': row.get('duct_id'), 'velocity_ms': row.get('velocity_ms', 0.0)})
+    return result
+
+
 def main():
     output = script.get_output()
     selection = revit.get_selection()
@@ -61,12 +81,7 @@ def main():
             path = excel.export_calculation(result)
     else:
         path = excel.export_calculation(result)
-    try:
-        graphics.apply_overrides(revit.doc, revit.active_view, result)
-    except Exception as error:
-        message = u'Ошибка подсветки критической трассы: ' + config.unicode_text(error)
-        output.print_md(message)
-        forms.alert(message, title=u'Расчет воздуховодов')
+    save_last_result(result, path)
     reserve = totals.get('reserve_percent', 0.0)
     message = u'Расчет выполнен'
     message += u'\nСтарт: ElementId ' + str(result.get('start_element_id', ''))

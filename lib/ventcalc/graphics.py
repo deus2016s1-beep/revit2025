@@ -1,11 +1,63 @@
 # -*- coding: utf-8 -*-
 import Autodesk.Revit.DB as DB
 from ventcalc import config
+from ventcalc import revit_utils
+
+
+def clear_ids(doc, view, ids):
+    transaction = DB.Transaction(doc, 'VentCalc clear graphics')
+    transaction.Start()
+    try:
+        for element_id in ids:
+            try:
+                view.SetElementOverrides(DB.ElementId(int(element_id)), DB.OverrideGraphicSettings())
+            except Exception:
+                continue
+        transaction.Commit()
+    except Exception:
+        transaction.RollBack()
+        raise
+
+
+def apply_critical_path(doc, view, ids):
+    transaction = DB.Transaction(doc, 'VentCalc critical path')
+    transaction.Start()
+    try:
+        color = DB.Color(255, 0, 0)
+        for element_id in ids:
+            settings = DB.OverrideGraphicSettings()
+            settings.SetProjectionLineColor(color)
+            settings.SetProjectionLineWeight(8)
+            view.SetElementOverrides(DB.ElementId(int(element_id)), settings)
+        transaction.Commit()
+    except Exception:
+        transaction.RollBack()
+        raise
+
+
+def toggle_critical_path(doc, view, last_result, start_path=None):
+    settings = config.load_settings(start_path)
+    previous_ids = settings.get('critical_highlight_ids', [])
+    if previous_ids:
+        clear_ids(doc, view, previous_ids)
+    if config.to_bool(settings.get('critical_highlight_enabled', False), False):
+        settings['critical_highlight_enabled'] = False
+        settings['critical_highlight_ids'] = []
+        config.save_settings(settings, start_path)
+        return False, []
+    ids = last_result.get('critical_path_ids', [])
+    apply_critical_path(doc, view, ids)
+    settings['critical_highlight_enabled'] = True
+    settings['critical_highlight_ids'] = ids
+    config.save_settings(settings, start_path)
+    return True, ids
 
 
 def velocity_color(value, settings):
     min_velocity = config.to_float(settings.get('min_velocity', 3.0), 3.0)
     max_velocity = config.to_float(settings.get('max_velocity', 5.0), 5.0)
+    if value <= 0:
+        return DB.Color(160, 160, 160)
     if value < min_velocity:
         return DB.Color(0, 120, 255)
     if value > max_velocity:
@@ -13,88 +65,35 @@ def velocity_color(value, settings):
     return DB.Color(0, 180, 0)
 
 
-def fitting_color():
-    return DB.Color(255, 140, 0)
-
-
-def end_color():
-    return DB.Color(160, 0, 200)
-
-
-def apply_overrides(doc, view, result_or_rows):
-    if isinstance(result_or_rows, dict):
-        result = result_or_rows
-        rows = result.get('rows', [])
-        settings = result.get('settings', {})
-        fitting_ids = result.get('critical_fitting_ids', [])
-        start_element_id = result.get('start_element_id')
-        end_element_id = result.get('end_element_id')
-        start_path = result.get('settings_start_path')
-    else:
-        rows = result_or_rows
-        settings = config.load_settings()
-        fitting_ids = []
-        start_element_id = None
-        end_element_id = None
-        start_path = None
-    transaction = DB.Transaction(doc, 'VentCalc graphics')
+def apply_speed_highlight(doc, view, ducts, settings):
+    transaction = DB.Transaction(doc, 'VentCalc speed highlight')
+    ids = []
     transaction.Start()
     try:
-        clear_previous(view, settings)
-        if not config.to_bool(settings.get('highlight_critical_path', True), True):
-            settings['last_highlight_ids'] = []
-            transaction.Commit()
-            config.save_settings(settings, start_path)
-            return
-        current_ids = []
-        for row in rows:
-            duct_id = row.get('duct_id')
-            if duct_id is None:
-                continue
+        for duct in ducts:
+            velocity = duct_velocity(duct)
             graphic = DB.OverrideGraphicSettings()
-            if config.to_bool(settings.get('highlight_by_velocity', True), True):
-                graphic.SetProjectionLineColor(velocity_color(row.get('velocity_ms', 0.0), settings))
-            else:
-                graphic.SetProjectionLineColor(DB.Color(255, 0, 0))
-            graphic.SetProjectionLineWeight(7)
-            view.SetElementOverrides(DB.ElementId(duct_id), graphic)
-            add_unique(current_ids, duct_id)
-        for fitting_id in fitting_ids:
-            apply_element_color(view, fitting_id, fitting_color(), 8)
-            add_unique(current_ids, fitting_id)
-        if start_element_id:
-            apply_element_color(view, start_element_id, fitting_color(), 8)
-            add_unique(current_ids, start_element_id)
-        if end_element_id:
-            apply_element_color(view, end_element_id, end_color(), 8)
-            add_unique(current_ids, end_element_id)
-        settings['last_highlight_ids'] = current_ids
+            graphic.SetProjectionLineColor(velocity_color(velocity, settings))
+            graphic.SetProjectionLineWeight(6)
+            view.SetElementOverrides(duct.Id, graphic)
+            ids.append(duct.Id.IntegerValue)
         transaction.Commit()
-        config.save_settings(settings, start_path)
     except Exception:
         transaction.RollBack()
         raise
+    return ids
 
 
-def clear_previous(view, settings):
-    for element_id in settings.get('last_highlight_ids', []):
-        try:
-            view.SetElementOverrides(DB.ElementId(int(element_id)), DB.OverrideGraphicSettings())
-        except Exception:
-            continue
+def clear_speed_highlight(doc, view, start_path=None):
+    settings = config.load_settings(start_path)
+    clear_ids(doc, view, settings.get('speed_highlight_ids', []))
+    settings['speed_highlight_ids'] = []
+    config.save_settings(settings, start_path)
 
 
-def apply_element_color(view, element_id, color, weight):
-    graphic = DB.OverrideGraphicSettings()
-    graphic.SetProjectionLineColor(color)
-    graphic.SetProjectionLineWeight(weight)
-    view.SetElementOverrides(DB.ElementId(int(element_id)), graphic)
-
-
-def add_unique(values, value):
-    try:
-        value = int(value)
-    except Exception:
-        return
-    if value not in values:
-        values.append(value)
+def duct_velocity(duct):
+    flow = revit_utils.duct_flow_m3s(duct)
+    area = revit_utils.duct_area_m2(duct)
+    if area <= 0:
+        return 0.0
+    return flow / area

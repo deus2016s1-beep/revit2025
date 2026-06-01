@@ -9,10 +9,10 @@ DEFAULT_SETTINGS = {
     'min_velocity': 3.0,
     'max_velocity': 5.0,
     'reserve_percent': 15.0,
-    'highlight_critical_path': True,
-    'highlight_by_velocity': True,
     'ask_before_excel': True,
-    'last_highlight_ids': [],
+    'critical_highlight_enabled': False,
+    'critical_highlight_ids': [],
+    'speed_highlight_ids': [],
     'excel_filename': 'AerodynamicCalculation.xlsx',
     'zeta_filename': 'ventcalc_zeta.json'
 }

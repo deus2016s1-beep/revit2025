@@ -20,7 +20,7 @@ class SettingsForm(Form):
     def __init__(self, settings):
         Form.__init__(self)
         self.Text = u'Настройки VentCalc'
-        self.Size = Size(430, 330)
+        self.Size = Size(430, 260)
         self.StartPosition = FormStartPosition.CenterScreen
         self.inputs = {}
         self.checks = {}
@@ -44,27 +44,20 @@ class SettingsForm(Form):
             self.Controls.Add(box)
             self.inputs[key] = box
             y += 36
-        check_rows = [
-            ('highlight_critical_path', u'Подсвечивать критическую трассу'),
-            ('highlight_by_velocity', u'Подсвечивать воздуховоды по скорости'),
-            ('ask_before_excel', u'Спрашивать перед созданием Excel')
-        ]
-        for key, caption in check_rows:
-            check = CheckBox()
-            check.Text = caption
-            check.Location = Point(12, y)
-            check.Size = Size(360, 24)
-            check.Checked = config.to_bool(settings.get(key, True), True)
-            self.Controls.Add(check)
-            self.checks[key] = check
-            y += 30
+        check = CheckBox()
+        check.Text = u'Спрашивать перед созданием Excel'
+        check.Location = Point(12, y)
+        check.Size = Size(360, 24)
+        check.Checked = config.to_bool(settings.get('ask_before_excel', True), True)
+        self.Controls.Add(check)
+        self.checks['ask_before_excel'] = check
         ok = Button()
         ok.Text = 'OK'
-        ok.Location = Point(225, 250)
+        ok.Location = Point(225, 190)
         ok.DialogResult = DialogResult.OK
         cancel = Button()
         cancel.Text = u'Отмена'
-        cancel.Location = Point(315, 250)
+        cancel.Location = Point(315, 190)
         cancel.DialogResult = DialogResult.Cancel
         self.Controls.Add(ok)
         self.Controls.Add(cancel)

@@ -5,9 +5,6 @@ from ventcalc import network
 from ventcalc import revit_utils
 from ventcalc import zeta
 
-MAX_SIMPLE_PATHS = 500
-MAX_PATH_DEPTH = 200
-
 
 def air_density(settings):
     return config.to_float(settings.get('air_density', 1.2), 1.2)
@@ -23,11 +20,6 @@ def roughness_m(settings):
 
 def dynamic_pressure_by_velocity(velocity, settings):
     return air_density(settings) * velocity * velocity / 2.0
-
-
-def dynamic_pressure(duct, settings):
-    values = duct_values(duct, settings)
-    return values.get('pv_pa', 0.0)
 
 
 def reynolds(velocity, diameter, settings):
@@ -79,6 +71,10 @@ def duct_values(duct, settings):
     }
 
 
+def dynamic_pressure(duct, settings):
+    return duct_values(duct, settings).get('pv_pa', 0.0)
+
+
 def duct_row(duct, index, settings):
     values = duct_values(duct, settings)
     row = {
@@ -102,234 +98,196 @@ def duct_row(duct, index, settings):
 def calculate(doc, selected_ids=None, start_path=None):
     settings = config.load_settings(start_path)
     zeta_data = config.load_zeta(start_path)
-    data = network.build_network(doc)
-    if not data['ducts']:
+    data = network.build_element_graph(doc)
+    if not data.get('duct_ids'):
         raise Exception(u'Воздуховоды не найдены')
-    end_element = selected_end_element(doc, selected_ids)
-    if end_element is None:
-        raise Exception(u'Выберите один конечный элемент трассы: вентилятор, выброс, решетку, зонт, дефлектор или конечный воздуховод')
-    end_duct_ids = network.endpoint_duct_ids(data, end_element)
-    if not end_duct_ids:
-        raise Exception(u'Выбранный элемент не подключен к воздуховоду')
-    starts = start_points(data, end_element, end_duct_ids)
-    path_info = choose_path(data, starts, end_duct_ids, settings, zeta_data)
-    if not path_info:
+    selected_end_id = selected_element_id(selected_ids)
+    if selected_end_id not in data['elements_by_id']:
+        raise Exception(u'Выбранный элемент не входит в воздуховодную сеть')
+    starts = find_start_candidates(data, selected_end_id)
+    paths = []
+    for start_id in starts:
+        path_ids = find_path_between(data['graph'], start_id, selected_end_id)
+        if path_ids:
+            paths.append(calculate_element_path(path_ids, data, settings, zeta_data))
+    critical = choose_critical_path(paths)
+    if not critical:
         raise Exception(u'Критическая трасса до выбранного конечного элемента не найдена. Проверьте соединения воздуховодов и фитингов')
-    rows, fitting_ids = make_rows(path_info, data, settings, zeta_data)
-    if not rows:
-        raise Exception(u'Трасса найдена, но расчетные участки не сформированы')
     reserve_percent = config.to_float(settings.get('reserve_percent', 15.0), 15.0)
+    rows = critical.get('rows', [])
     for row in rows:
         row['total_pa'] = row.get('friction_pa', 0.0) + row.get('local_pa', 0.0)
         row['total_with_reserve_pa'] = row['total_pa'] * (1.0 + reserve_percent / 100.0)
     totals = make_totals(rows, reserve_percent)
-    diagnostics = make_diagnostics(data, starts, end_duct_ids, path_info.get('path', []), rows, totals)
-    start_element = path_info.get('start_element')
-    start_element_id = None
-    if start_element is not None:
-        start_element_id = start_element.Id.IntegerValue
-    return {
+    start_id = critical.get('start_element_id')
+    result = {
         'rows': rows,
         'totals': totals,
         'settings': settings,
         'settings_start_path': start_path,
-        'critical_path': path_info.get('path', []),
-        'critical_duct_ids': path_info.get('path', []),
-        'critical_fitting_ids': fitting_ids,
-        'start_element_id': start_element_id,
-        'start_element_name': element_display_name(start_element),
-        'end_element_id': end_element.Id.IntegerValue,
-        'end_element_name': element_display_name(end_element),
-        'diagnostics': diagnostics
+        'critical_path_ids': critical.get('path_ids', []),
+        'critical_path': critical.get('path_ids', []),
+        'critical_duct_ids': critical.get('duct_ids', []),
+        'critical_fitting_ids': critical.get('fitting_ids', []),
+        'start_element_id': start_id,
+        'start_element_name': element_display_name(data, start_id),
+        'end_element_id': selected_end_id,
+        'end_element_name': element_display_name(data, selected_end_id),
+        'diagnostics': make_diagnostics(data, starts, critical, rows, totals)
     }
-
-
-def make_totals(rows, reserve_percent):
-    return {
-        'length_m': sum([row.get('length_m', 0.0) for row in rows]),
-        'friction_pa': sum([row.get('friction_pa', 0.0) for row in rows]),
-        'local_pa': sum([row.get('local_pa', 0.0) for row in rows]),
-        'total_pa': sum([row.get('total_pa', 0.0) for row in rows]),
-        'total_with_reserve_pa': sum([row.get('total_with_reserve_pa', 0.0) for row in rows]),
-        'reserve_percent': reserve_percent
-    }
-
-
-def make_diagnostics(data, starts, end_duct_ids, path, rows, totals):
-    first_rows = []
-    for row in rows[:5]:
-        first_rows.append({
-            'duct_id': row.get('duct_id'),
-            'flow_m3s': row.get('flow_m3s', 0.0),
-            'velocity_ms': row.get('velocity_ms', 0.0),
-            'friction_pa': row.get('friction_pa', 0.0)
-        })
-    return {
-        'ducts_count': len(data.get('ducts', {})),
-        'end_duct_ids': end_duct_ids,
-        'candidates_count': len(starts),
-        'best_path_len': len(path),
-        'friction_pa': totals.get('friction_pa', 0.0),
-        'local_pa': totals.get('local_pa', 0.0),
-        'total_pa': totals.get('total_pa', 0.0),
-        'first_rows': first_rows
-    }
-
-
-def selected_end_element(doc, selected_ids):
-    if not selected_ids:
-        return None
-    if len(selected_ids) != 1:
-        raise Exception(u'Для расчета выберите ровно один конечный элемент трассы')
-    try:
-        return doc.GetElement(DBElementId(selected_ids[0]))
-    except Exception:
-        try:
-            import Autodesk.Revit.DB as DB
-            return doc.GetElement(DB.ElementId(selected_ids[0]))
-        except Exception:
-            return None
-
-
-def DBElementId(value):
-    import Autodesk.Revit.DB as DB
-    return DB.ElementId(value)
-
-
-def start_points(data, end_element, end_duct_ids):
-    result = []
-    end_element_id = end_element.Id.IntegerValue
-    ducts_with_normal_terminal = set()
-    for element_id in data.get('terminals', {}):
-        element = data['terminals'][element_id]
-        linked_ducts = network.endpoint_duct_ids(data, element)
-        if element_id == end_element_id:
-            continue
-        if not linked_ducts:
-            continue
-        if is_real_start_terminal(element):
-            for duct_id in linked_ducts:
-                ducts_with_normal_terminal.add(duct_id)
-                if duct_id not in end_duct_ids:
-                    result.append({'duct_id': duct_id, 'element': element, 'kind': 'terminal'})
-    for duct_id in data.get('ducts', {}):
-        if duct_id in end_duct_ids:
-            continue
-        if duct_id in ducts_with_normal_terminal:
-            continue
-        if len(data.get('graph', {}).get(duct_id, [])) <= 1:
-            result.append({'duct_id': duct_id, 'element': None, 'kind': 'deadend'})
-    return unique_starts(result)
-
-
-def unique_starts(starts):
-    result = []
-    seen = set()
-    for start in starts:
-        element = start.get('element')
-        element_id = 0
-        if element is not None:
-            element_id = element.Id.IntegerValue
-        key = (start.get('duct_id'), element_id)
-        if key not in seen:
-            seen.add(key)
-            result.append(start)
     return result
 
 
-def is_real_start_terminal(element):
+def selected_element_id(selected_ids):
+    if not selected_ids:
+        raise Exception(u'Выберите один конечный элемент трассы')
+    if len(selected_ids) != 1:
+        raise Exception(u'Для расчета выберите ровно один конечный элемент трассы')
+    return selected_ids[0]
+
+
+def find_start_candidates(data, selected_end_id):
+    result = []
+    terminal_like = data.get('terminal_ids', []) + data.get('equipment_ids', [])
+    duct_has_terminal = set()
+    for element_id in terminal_like:
+        if element_id == selected_end_id:
+            continue
+        element = data['elements_by_id'][element_id]
+        connected_ducts = connected_duct_ids(data, element_id)
+        if not connected_ducts:
+            continue
+        if is_start_terminal(element):
+            result.append(element_id)
+            for duct_id in connected_ducts:
+                duct_has_terminal.add(duct_id)
+    for duct_id in data.get('duct_ids', []):
+        if duct_id == selected_end_id:
+            continue
+        if duct_id in duct_has_terminal:
+            continue
+        if len(data['graph'].get(duct_id, [])) <= 1:
+            result.append(duct_id)
+    return unique_ids(result)
+
+
+def is_start_terminal(element):
     if zeta.is_normal_terminal(element):
         return True
-    linked = revit_utils.connected_ducts(element)
-    if linked and len(linked) == 1:
-        category = revit_utils.category_name(element).lower()
-        if u'терминал' in category or 'terminal' in category:
-            return True
-        if u'оборуд' in category or 'equipment' in category:
-            return True
+    category = revit_utils.category_name(element).lower()
+    if u'терминал' in category or 'terminal' in category:
+        return True
+    if u'оборуд' in category or 'equipment' in category:
+        return True
     return False
 
 
-def choose_path(data, starts, end_duct_ids, settings, zeta_data):
-    best = None
-    best_pressure = -1.0
-    for start in starts:
-        for end_id in end_duct_ids:
-            paths = all_simple_paths(data.get('graph', {}), start.get('duct_id'), end_id, MAX_SIMPLE_PATHS, MAX_PATH_DEPTH)
-            for path in paths:
-                pressure = path_pressure(path, data, settings, zeta_data, start.get('element'))
-                if pressure > best_pressure:
-                    best_pressure = pressure
-                    best = {'path': path, 'start_element': start.get('element'), 'start_kind': start.get('kind'), 'total_pa': pressure}
-    return best
-
-
-def all_simple_paths(graph, start, finish, max_paths, max_depth):
-    if start is None or finish is None:
-        return []
-    stack = [(start, [start])]
+def connected_duct_ids(data, element_id):
     result = []
-    while stack and len(result) < max_paths:
-        current, path = stack.pop()
-        if current == finish:
-            result.append(path)
-            continue
-        if len(path) >= max_depth:
-            continue
-        for next_node in graph.get(current, []):
-            if next_node not in path:
-                stack.append((next_node, path + [next_node]))
+    for connected_id in data['graph'].get(element_id, []):
+        if connected_id in data.get('duct_ids', []) and connected_id not in result:
+            result.append(connected_id)
     return result
 
 
-def path_pressure(path, data, settings, zeta_data, start_element=None):
-    pressure = 0.0
-    ducts = data['ducts']
-    for duct_id in path:
-        pressure += duct_values(ducts[duct_id], settings).get('friction_pa', 0.0)
-    if start_element is not None and path:
-        pressure += terminal_pressure(start_element, ducts[path[0]], settings, zeta_data)
-    for index in range(len(path) - 1):
-        fitting = data['edges'].get((path[index], path[index + 1]))
-        if fitting:
-            pressure += fitting_pressure(fitting, ducts[path[index]], ducts[path[index + 1]], settings, zeta_data)
-    return pressure
+def unique_ids(values):
+    result = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
 
 
-def make_rows(path_info, data, settings, zeta_data):
+def find_path_between(graph, start_id, end_id):
+    return network.find_path_between(graph, start_id, end_id)
+
+
+def calculate_element_path(path_ids, data, settings, zeta_data):
     rows = []
+    row_by_duct_id = {}
+    duct_ids = []
     fitting_ids = []
-    path = path_info.get('path', [])
-    ducts = data['ducts']
-    start_element = path_info.get('start_element')
-    for index in range(len(path)):
-        duct_id = path[index]
-        row = duct_row(ducts[duct_id], index, settings)
-        if index == 0 and start_element is not None:
-            add_terminal_to_row(row, start_element, ducts[duct_id], settings, zeta_data)
-        if index > 0:
-            previous_duct = ducts[path[index - 1]]
-            fitting = data['edges'].get((path[index - 1], duct_id))
-            if fitting:
-                add_fitting_to_row(row, fitting, previous_duct, ducts[duct_id], settings, zeta_data)
-                fitting_ids.append(fitting.Id.IntegerValue)
-        rows.append(row)
-    return rows, fitting_ids
+    for element_id in path_ids:
+        if element_id in data.get('duct_ids', []):
+            duct = data['elements_by_id'][element_id]
+            row = duct_row(duct, len(rows), settings)
+            rows.append(row)
+            row_by_duct_id[element_id] = row
+            duct_ids.append(element_id)
+    for index in range(len(path_ids)):
+        element_id = path_ids[index]
+        if element_id in data.get('duct_ids', []):
+            continue
+        element = data['elements_by_id'][element_id]
+        target_duct_id = target_duct_for_local(path_ids, index, data)
+        if target_duct_id is None:
+            continue
+        row = row_by_duct_id.get(target_duct_id)
+        if not row:
+            continue
+        previous_duct = nearest_duct_before(path_ids, index, data)
+        next_duct = nearest_duct_after(path_ids, index, data)
+        add_local_to_row(row, element, previous_duct, next_duct, data['elements_by_id'][target_duct_id], settings, zeta_data)
+        if element_id not in data.get('terminal_ids', []) and element_id not in data.get('equipment_ids', []):
+            fitting_ids.append(element_id)
+    for row in rows:
+        row['total_pa'] = row.get('friction_pa', 0.0) + row.get('local_pa', 0.0)
+    totals = make_totals(rows, 0.0)
+    return {
+        'path_ids': path_ids,
+        'rows': rows,
+        'duct_ids': duct_ids,
+        'fitting_ids': unique_ids(fitting_ids),
+        'start_element_id': path_ids[0] if path_ids else None,
+        'total_pa': totals.get('total_pa', 0.0),
+        'friction_pa': totals.get('friction_pa', 0.0),
+        'local_pa': totals.get('local_pa', 0.0)
+    }
 
 
-def terminal_pressure(element, duct, settings, zeta_data):
-    value = zeta.fitting_zeta(element, None, duct, zeta_data)
-    return value * dynamic_pressure(duct, settings)
+def target_duct_for_local(path_ids, index, data):
+    previous_id = nearest_duct_id_before(path_ids, index, data)
+    next_id = nearest_duct_id_after(path_ids, index, data)
+    if previous_id is None and next_id is not None:
+        return next_id
+    if previous_id is not None:
+        return previous_id
+    return next_id
 
 
-def fitting_pressure(fitting, previous_duct, next_duct, settings, zeta_data):
-    value = zeta.fitting_zeta(fitting, previous_duct, next_duct, zeta_data)
-    return value * dynamic_pressure(next_duct, settings)
+def nearest_duct_id_before(path_ids, index, data):
+    for item in range(index - 1, -1, -1):
+        element_id = path_ids[item]
+        if element_id in data.get('duct_ids', []):
+            return element_id
+    return None
 
 
-def add_terminal_to_row(row, element, duct, settings, zeta_data):
-    value = zeta.fitting_zeta(element, None, duct, zeta_data)
-    pressure = value * dynamic_pressure(duct, settings)
+def nearest_duct_id_after(path_ids, index, data):
+    for item in range(index + 1, len(path_ids)):
+        element_id = path_ids[item]
+        if element_id in data.get('duct_ids', []):
+            return element_id
+    return None
+
+
+def nearest_duct_before(path_ids, index, data):
+    duct_id = nearest_duct_id_before(path_ids, index, data)
+    if duct_id is None:
+        return None
+    return data['elements_by_id'][duct_id]
+
+
+def nearest_duct_after(path_ids, index, data):
+    duct_id = nearest_duct_id_after(path_ids, index, data)
+    if duct_id is None:
+        return None
+    return data['elements_by_id'][duct_id]
+
+
+def add_local_to_row(row, element, previous_duct, next_duct, pressure_duct, settings, zeta_data):
+    value = zeta.fitting_zeta(element, previous_duct, next_duct, zeta_data)
+    pressure = value * dynamic_pressure(pressure_duct, settings)
     row['local_zeta'] += value
     row['local_pa'] += pressure
     row['fittings'].append({'id': element.Id.IntegerValue, 'kind': zeta.fitting_kind(element), 'zeta': value, 'pressure_pa': pressure})
@@ -337,20 +295,43 @@ def add_terminal_to_row(row, element, duct, settings, zeta_data):
     append_note(row, element, value)
 
 
-def add_fitting_to_row(row, fitting, previous_duct, next_duct, settings, zeta_data):
-    pressure_duct = next_duct
-    if pressure_duct is None:
-        pressure_duct = previous_duct
-    if pressure_duct is None:
-        return
-    value = zeta.fitting_zeta(fitting, previous_duct, next_duct, zeta_data)
-    pressure = value * dynamic_pressure(pressure_duct, settings)
-    kind = zeta.fitting_kind(fitting)
-    row['local_zeta'] += value
-    row['local_pa'] += pressure
-    row['fittings'].append({'id': fitting.Id.IntegerValue, 'kind': kind, 'zeta': value, 'pressure_pa': pressure})
-    row['element_ids'].append(fitting.Id.IntegerValue)
-    append_note(row, fitting, value)
+def choose_critical_path(paths):
+    best = None
+    best_pressure = -1.0
+    for path in paths:
+        pressure = path.get('total_pa', 0.0)
+        if pressure > best_pressure:
+            best_pressure = pressure
+            best = path
+    return best
+
+
+def make_totals(rows, reserve_percent):
+    total_pa = sum([row.get('total_pa', 0.0) for row in rows])
+    return {
+        'length_m': sum([row.get('length_m', 0.0) for row in rows]),
+        'friction_pa': sum([row.get('friction_pa', 0.0) for row in rows]),
+        'local_pa': sum([row.get('local_pa', 0.0) for row in rows]),
+        'total_pa': total_pa,
+        'total_with_reserve_pa': total_pa * (1.0 + reserve_percent / 100.0),
+        'reserve_percent': reserve_percent
+    }
+
+
+def make_diagnostics(data, starts, critical, rows, totals):
+    first_rows = []
+    for row in rows[:5]:
+        first_rows.append({'duct_id': row.get('duct_id'), 'flow_m3s': row.get('flow_m3s', 0.0), 'velocity_ms': row.get('velocity_ms', 0.0), 'friction_pa': row.get('friction_pa', 0.0)})
+    return {
+        'elements_count': len(data.get('elements_by_id', {})),
+        'ducts_count': len(data.get('duct_ids', [])),
+        'candidates_count': len(starts),
+        'best_path_len': len(critical.get('path_ids', [])),
+        'friction_pa': totals.get('friction_pa', 0.0),
+        'local_pa': totals.get('local_pa', 0.0),
+        'total_pa': totals.get('total_pa', 0.0),
+        'first_rows': first_rows
+    }
 
 
 def append_note(row, element, value):
@@ -383,7 +364,8 @@ def local_resistance_name(element):
     return names.get(kind, revit_utils.element_name(element) or revit_utils.type_name(element) or kind)
 
 
-def element_display_name(element):
+def element_display_name(data, element_id):
+    element = data.get('elements_by_id', {}).get(element_id)
     if element is None:
         return ''
     return revit_utils.element_name(element) or revit_utils.type_name(element) or revit_utils.category_name(element)
