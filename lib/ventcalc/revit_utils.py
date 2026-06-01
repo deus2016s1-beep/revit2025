@@ -359,3 +359,21 @@ def element_id(element):
 
 def system_name(element):
     return param_text(element, ['Имя системы', 'System Name', 'System Classification'], '')
+
+
+def duct_size_text(duct):
+    diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
+    width = param_double(duct, ['Ширина', 'Width'], 0.0)
+    height = param_double(duct, ['Высота', 'Height'], 0.0)
+    if diameter > 0:
+        return unicode_mm(feet_to_m(diameter) * 1000.0)
+    if width > 0 and height > 0:
+        return unicode_mm(feet_to_m(width) * 1000.0) + 'x' + unicode_mm(feet_to_m(height) * 1000.0)
+    return param_text(duct, ['Размер', 'Size'], '')
+
+
+def unicode_mm(value):
+    try:
+        return str(int(round(value)))
+    except Exception:
+        return ''

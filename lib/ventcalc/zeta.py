@@ -89,6 +89,12 @@ def fitting_kind(fitting):
         return 'inlet'
     if contains_any(text, [u'выход', u'выпуск', 'outlet', 'exhaust']):
         return 'outlet'
+    try:
+        category_name = revit_utils.category_name(fitting).lower()
+        if u'оборуд' in category_name or 'equipment' in category_name:
+            return 'equipment'
+    except Exception:
+        pass
     connector_count = len(revit_utils.connectors(fitting))
     if connector_count >= 4:
         return 'cross'
@@ -207,6 +213,21 @@ def is_pass_direction(fitting, previous_duct, next_duct):
     except Exception:
         return False
 
+
+
+def is_normal_terminal(element):
+    kind = fitting_kind(element)
+    if kind in ['cap', 'inlet', 'outlet', 'grille', 'hood', 'deflector', 'equipment']:
+        return True
+    try:
+        category_name = revit_utils.category_name(element).lower()
+        if u'терминал' in category_name or 'terminal' in category_name:
+            return True
+        if u'оборуд' in category_name or 'equipment' in category_name:
+            return True
+    except Exception:
+        pass
+    return False
 
 def zero_allowed(fitting):
     return fitting_kind(fitting) == 'cap'

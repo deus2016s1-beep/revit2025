@@ -79,7 +79,7 @@ def check_breaks(doc, issues):
         connected_ducts = revit_utils.connected_ducts(element)
         if len(connected_ducts) == 0:
             add_issue(issues, u'Предупреждение', element, u'Одиночный элемент без соединенных воздуховодов', u'Подключить элемент к сети')
-        elif len(connected_ducts) == 1 and zeta.fitting_kind(element) not in ['cap', 'inlet', 'outlet', 'grille', 'hood', 'deflector']:
+        elif len(connected_ducts) == 1 and not zeta.is_normal_terminal(element):
             add_issue(issues, u'Предупреждение', element, u'Элемент подключен только к одному воздуховоду', u'Проверить возможный разрыв сети')
 
 

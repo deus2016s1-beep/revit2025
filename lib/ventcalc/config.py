@@ -4,72 +4,39 @@ import json
 
 DEFAULT_SETTINGS = {
     'air_density': 1.2,
+    'dynamic_viscosity': 0.0000181,
+    'roughness_mm': 0.1,
+    'min_velocity': 2.0,
+    'max_velocity': 8.0,
     'reserve_percent': 10.0,
-    'friction_factor': 0.02,
+    'highlight_critical_path': True,
+    'highlight_by_velocity': True,
+    'ask_before_excel': True,
     'excel_filename': 'AerodynamicCalculation.xlsx',
     'zeta_filename': 'ventcalc_zeta.json'
 }
 
 DEFAULT_ZETA = {
-    'elbow': {
-        '15': 0.08,
-        '30': 0.12,
-        '45': 0.18,
-        '60': 0.25,
-        '90': 0.35
-    },
-    'transition': {
-        'z_narrow': 0.10,
-        'z_expand': 0.20
-    },
-    'tee': {
-        'z_pass': 0.30,
-        'z_branch': 1.20
-    },
-    'cross': {
-        'z_pass': 0.50,
-        'z_branch': 1.50
-    },
-    'tap': {
-        'z': 1.20
-    },
-    'offset': {
-        'z': 0.40
-    },
-    'cap': {
-        'z': 0.00
-    },
-    'damper': {
-        'z': 0.40
-    },
-    'fire_damper': {
-        'z': 0.50
-    },
-    'backdraft_damper': {
-        'z': 2.00
-    },
-    'inlet': {
-        'z': 0.50
-    },
-    'outlet': {
-        'z': 1.00
-    },
-    'grille': {
-        'z': 2.00
-    },
-    'hood': {
-        'z': 1.30
-    },
-    'deflector': {
-        'z': 1.00
-    },
-    'other': {
-        'z': 0.50
-    },
-    'unknown': {
-        'z': 0.00
-    }
+    'elbow': {'15': 0.08, '30': 0.12, '45': 0.18, '60': 0.25, '90': 0.35},
+    'transition': {'z_narrow': 0.10, 'z_expand': 0.20},
+    'tee': {'z_pass': 0.30, 'z_branch': 1.20},
+    'cross': {'z_pass': 0.50, 'z_branch': 1.50},
+    'tap': {'z': 1.20},
+    'offset': {'z': 0.40},
+    'cap': {'z': 0.00},
+    'damper': {'z': 0.40},
+    'fire_damper': {'z': 0.50},
+    'backdraft_damper': {'z': 2.00},
+    'inlet': {'z': 0.50},
+    'outlet': {'z': 1.00},
+    'grille': {'z': 2.00},
+    'hood': {'z': 1.30},
+    'deflector': {'z': 1.00},
+    'equipment': {'z': 0.50},
+    'other': {'z': 0.50},
+    'unknown': {'z': 0.00}
 }
+
 
 def unicode_text(value):
     try:
@@ -112,6 +79,7 @@ def read_json(path, default_value):
         data = json.loads(text)
         result = copy_dict(default_value)
         merge_dict(result, data)
+        remove_old_settings(result)
         return result
     finally:
         if stream:
@@ -126,8 +94,7 @@ def write_json(path, data):
     stream = None
     try:
         stream = open(path, 'wb')
-        data = text.encode('utf-8')
-        stream.write(data)
+        stream.write(text.encode('utf-8'))
     finally:
         if stream:
             stream.close()
@@ -155,6 +122,12 @@ def merge_dict(target, source):
     return target
 
 
+def remove_old_settings(settings):
+    if isinstance(settings, dict) and 'friction_factor' in settings:
+        del settings['friction_factor']
+    return settings
+
+
 def settings_path(start_path=None):
     return data_path('ventcalc_settings.json', start_path)
 
@@ -165,12 +138,13 @@ def zeta_path(start_path=None):
 
 
 def load_settings(start_path=None):
-    return read_json(data_path('ventcalc_settings.json', start_path), DEFAULT_SETTINGS)
+    return remove_old_settings(read_json(data_path('ventcalc_settings.json', start_path), DEFAULT_SETTINGS))
 
 
 def save_settings(settings, start_path=None):
     data = copy_dict(DEFAULT_SETTINGS)
     merge_dict(data, settings)
+    remove_old_settings(data)
     write_json(data_path('ventcalc_settings.json', start_path), data)
     return data
 
@@ -196,3 +170,16 @@ def to_float(value, default_value=0.0):
         return float(text)
     except Exception:
         return default_value
+
+
+def to_bool(value, default_value=False):
+    if value is None:
+        return default_value
+    if isinstance(value, bool):
+        return value
+    text = unicode_text(value).strip().lower()
+    if text in ['1', 'true', 'yes', 'да', 'y']:
+        return True
+    if text in ['0', 'false', 'no', 'нет', 'n']:
+        return False
+    return default_value

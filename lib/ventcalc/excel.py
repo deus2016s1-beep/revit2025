@@ -13,7 +13,6 @@ try:
 except NameError:
     long = int
 
-
 CONTENT_TYPES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -24,40 +23,12 @@ CONTENT_TYPES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
 <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
 </Types>'''
-
-ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-</Relationships>'''
-
-WORKBOOK = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="Аэродинамический расчет" sheetId="1" r:id="rId1"/></sheets>
-</workbook>'''
-
-WORKBOOK_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>'''
-
-STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts>
-<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills>
-<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"/></cellXfs>
-<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-</styleSheet>'''
-
-APP_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>VentCalc</Application></Properties>'''
-
-CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Аэродинамический расчет</dc:title><dc:creator>VentCalc</dc:creator></cp:coreProperties>'''
+ROOT_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'''
+WORKBOOK = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Аэродинамический расчет" sheetId="1" r:id="rId1"/></sheets></workbook>'''
+WORKBOOK_RELS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'''
+STYLES = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
+APP_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>VentCalc</Application></Properties>'''
+CORE_PROPS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Аэродинамический расчет</dc:title><dc:creator>VentCalc</dc:creator></cp:coreProperties>'''
 
 
 def export_calculation(result, path=None):
@@ -74,6 +45,10 @@ def export_calculation(result, path=None):
         csv_path = csv_fallback_path(path)
         write_csv(result, csv_path)
         return csv_path
+
+
+def save_xlsx(result, path=None):
+    return export_calculation(result, path)
 
 
 def write_xlsx(result, path):
@@ -113,22 +88,17 @@ def worksheet_xml(result):
         rows.append(row_xml(row_number, row_values(row), 3))
         row_number += 1
     totals = result.get('totals', {})
-    total_values = ['', '', '', '', '', '', '', u'Итого', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), round_value(totals.get('total_with_reserve_pa', 0.0))]
+    total_values = ['', u'Итого', '', '', '', '', '', '', '', '', '', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), u'С запасом: ' + str(round_value(totals.get('total_with_reserve_pa', 0.0)))]
     rows.append(row_xml(row_number, total_values, 4))
-    note_row = row_number + 2
-    rows.append(row_xml(note_row, [u'Запас, %', round_value(totals.get('reserve_percent', 0.0))], 3))
-    dimension = 'A1:M' + str(note_row)
-    xml = []
-    xml.append('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+    dimension = 'A1:P' + str(row_number)
+    xml = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>']
     xml.append('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">')
     xml.append('<dimension ref="' + dimension + '"/>')
-    xml.append('<sheetViews><sheetView workbookViewId="0"/></sheetViews>')
-    xml.append('<sheetFormatPr defaultRowHeight="18"/>')
     xml.append(columns_xml())
     xml.append('<sheetData>')
     xml.extend(rows)
     xml.append('</sheetData>')
-    xml.append('<mergeCells count="1"><mergeCell ref="A1:M1"/></mergeCells>')
+    xml.append('<mergeCells count="1"><mergeCell ref="A1:P1"/></mergeCells>')
     xml.append('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>')
     xml.append('<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
     xml.append('</worksheet>')
@@ -136,12 +106,11 @@ def worksheet_xml(result):
 
 
 def columns_xml():
-    widths = [10, 16, 28, 10, 12, 10, 10, 10, 12, 10, 12, 16, 16]
+    widths = [6, 24, 14, 12, 10, 10, 10, 10, 12, 10, 10, 12, 8, 10, 10, 35]
     parts = ['<cols>']
     for index in range(len(widths)):
         col = str(index + 1)
-        width = str(widths[index])
-        parts.append('<col min="' + col + '" max="' + col + '" width="' + width + '" customWidth="1"/>')
+        parts.append('<col min="' + col + '" max="' + col + '" width="' + str(widths[index]) + '" customWidth="1"/>')
     parts.append('</cols>')
     return ''.join(parts)
 
@@ -184,39 +153,11 @@ def number_text(value):
 
 
 def headers_list():
-    return [
-        u'№ участка',
-        u'Система',
-        u'Наименование участка',
-        u'L, м',
-        u'Q, м³/с',
-        u'F, м²',
-        u'v, м/с',
-        u'dэкв, м',
-        u'R·l, Па',
-        u'Σζ',
-        u'Z, Па',
-        u'Σ(R·l+Z), Па',
-        u'С запасом, Па'
-    ]
+    return [u'№', u'Участок', u'Размер', u'Расход, м³/с', u'Длина, м', u'Площадь, м²', u'dэкв, м', u'Скорость, м/с', u'Re', u'λ', u'R, Па/м', u'R·l, Па', u'Σζ', u'Z, Па', u'ΔP, Па', u'Примечание']
 
 
 def row_values(row):
-    return [
-        row.get('index', 0),
-        row.get('system', ''),
-        row.get('name', ''),
-        round_value(row.get('length_m', 0.0)),
-        round_value(row.get('flow_m3s', 0.0)),
-        round_value(row.get('area_m2', 0.0)),
-        round_value(row.get('velocity_ms', 0.0)),
-        round_value(row.get('diameter_m', 0.0)),
-        round_value(row.get('friction_pa', 0.0)),
-        round_value(row.get('local_zeta', 0.0)),
-        round_value(row.get('local_pa', 0.0)),
-        round_value(row.get('total_pa', 0.0)),
-        round_value(row.get('total_with_reserve_pa', 0.0))
-    ]
+    return [row.get('index', 0), row.get('name', ''), row.get('size', ''), round_value(row.get('flow_m3s', 0.0)), round_value(row.get('length_m', 0.0)), round_value(row.get('area_m2', 0.0)), round_value(row.get('diameter_m', 0.0)), round_value(row.get('velocity_ms', 0.0)), round_value(row.get('re', 0.0)), round_value(row.get('lambda', 0.0)), round_value(row.get('r_pa_m', 0.0)), round_value(row.get('friction_pa', 0.0)), round_value(row.get('local_zeta', 0.0)), round_value(row.get('local_pa', 0.0)), round_value(row.get('total_pa', 0.0)), row.get('note', '')]
 
 
 def write_csv(result, path):
@@ -226,8 +167,6 @@ def write_csv(result, path):
         write_csv_line(stream, headers_list())
         for row in result.get('rows', []):
             write_csv_line(stream, row_values(row))
-        totals = result.get('totals', {})
-        write_csv_line(stream, ['', '', '', '', '', '', '', u'Итого', round_value(totals.get('friction_pa', 0.0)), '', round_value(totals.get('local_pa', 0.0)), round_value(totals.get('total_pa', 0.0)), round_value(totals.get('total_with_reserve_pa', 0.0))])
     finally:
         stream.close()
 
@@ -237,8 +176,7 @@ def write_csv_line(stream, values):
     for value in values:
         text = config.unicode_text(value).replace('"', '""')
         parts.append('"' + text + '"')
-    line = ';'.join(parts) + '\r\n'
-    stream.write(line.encode('utf-8'))
+    stream.write((';'.join(parts) + '\r\n').encode('utf-8'))
 
 
 def round_value(value):
