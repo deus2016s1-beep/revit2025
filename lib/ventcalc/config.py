@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import codecs
 
 DEFAULT_SETTINGS = {
     'air_density': 1.2,
@@ -40,9 +41,21 @@ DEFAULT_ZETA = {
 
 
 def unicode_text(value):
+    if value is None:
+        return ''
+    try:
+        if isinstance(value, unicode):
+            return value
+    except NameError:
+        return str(value)
+    try:
+        if isinstance(value, str):
+            return value.decode('utf-8')
+    except Exception:
+        return str(value)
     try:
         return unicode(value)
-    except NameError:
+    except Exception:
         return str(value)
 
 
@@ -73,7 +86,7 @@ def read_json(path, default_value):
         return copy_dict(default_value)
     stream = None
     try:
-        stream = open(path, 'r')
+        stream = codecs.open(path, 'r', 'utf-8-sig')
         text = stream.read()
         if not text:
             return copy_dict(default_value)
@@ -91,11 +104,10 @@ def write_json(path, data):
     folder = os.path.dirname(path)
     if folder and not os.path.exists(folder):
         os.makedirs(folder)
-    text = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True)
     stream = None
     try:
-        stream = open(path, 'wb')
-        stream.write(text.encode('utf-8'))
+        stream = codecs.open(path, 'w', 'utf-8')
+        json.dump(data, stream, ensure_ascii=False, indent=2, sort_keys=True)
     finally:
         if stream:
             stream.close()
@@ -126,12 +138,6 @@ def merge_dict(target, source):
 def remove_old_settings(settings):
     if isinstance(settings, dict) and 'friction_factor' in settings:
         del settings['friction_factor']
-    if isinstance(settings, dict) and 'reserve_percent' in settings:
-        try:
-            if float(settings.get('reserve_percent', 0.0)) <= 0.0:
-                settings['reserve_percent'] = DEFAULT_SETTINGS.get('reserve_percent', 15.0)
-        except Exception:
-            settings['reserve_percent'] = DEFAULT_SETTINGS.get('reserve_percent', 15.0)
     return settings
 
 

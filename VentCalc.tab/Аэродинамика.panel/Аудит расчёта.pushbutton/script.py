@@ -19,13 +19,17 @@ def round_value(value, digits):
         return value
 
 
+def text(value):
+    return config.unicode_text(value)
+
+
 def candidate_rows(output, result):
     rows = []
     for item in result.get('candidate_summaries', []):
         selected = u'Да' if config.to_bool(item.get('selected', False), False) else u'Нет'
         rows.append([
             item.get('start_element_id', ''),
-            item.get('start_name', ''),
+            text(item.get('start_name', '')),
             item.get('sections_count', 0),
             item.get('revit_ducts_count', 0),
             round_value(item.get('length_m', 0.0), 2),
@@ -49,12 +53,12 @@ def local_rows(output, result):
         rows.append([
             item.get('section', ''),
             link,
-            item.get('type', ''),
-            item.get('decision', ''),
+            text(item.get('type', '')),
+            text(item.get('decision', '')),
             round_value(item.get('zeta', 0.0), 2),
             round_value(item.get('pv_pa', 0.0), 2),
             round_value(item.get('local_pa', 0.0), 2),
-            item.get('reason', '')
+            text(item.get('reason', ''))
         ])
     return rows
 
@@ -68,9 +72,9 @@ def main():
     output = script.get_output()
     output.set_title(u'Аудит расчёта VentCalc')
     output.print_md(u'## Аудит расчёта VentCalc')
-    output.print_md(u'* Файл Excel: ' + config.unicode_text(result.get('excel_path', u'не создан')))
-    output.print_md(u'* Старт: ElementId ' + config.unicode_text(result.get('start_element_id', '')))
-    output.print_md(u'* Конец: ElementId ' + config.unicode_text(result.get('end_element_id', '')))
+    output.print_md(u'* Файл Excel: ' + text(result.get('excel_path', u'не создан')))
+    output.print_md(u'* Старт: ElementId ' + text(result.get('start_element_id', '')))
+    output.print_md(u'* Конец: ElementId ' + text(result.get('end_element_id', '')))
     output.print_md(u'### Кандидаты критической трассы')
     candidates = candidate_rows(output, result)
     if candidates:

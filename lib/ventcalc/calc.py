@@ -115,9 +115,7 @@ def calculate(doc, selected_ids=None, start_path=None):
     critical = choose_critical_path(paths)
     if not critical:
         raise Exception(u'Критическая трасса до выбранного конечного элемента не найдена. Проверьте соединения воздуховодов и фитингов')
-    reserve_percent = config.to_float(settings.get('reserve_percent', 15.0), 15.0)
-    if reserve_percent <= 0.0:
-        reserve_percent = 15.0
+    reserve_percent = config.to_float(settings.get('reserve_percent', config.DEFAULT_SETTINGS.get('reserve_percent', 15.0)), config.DEFAULT_SETTINGS.get('reserve_percent', 15.0))
     detailed_rows = critical.get('rows', [])
     for row in detailed_rows:
         row['total_pa'] = row.get('friction_pa', 0.0) + row.get('local_pa', 0.0)

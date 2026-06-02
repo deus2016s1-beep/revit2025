@@ -54,7 +54,7 @@ def save_xlsx(result, path=None):
 
 def default_filename():
     stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    return u'VentCalc_Аэродинамический_расчет_' + stamp + '.xlsx'
+    return 'VentCalc_Aero_' + stamp + '.xlsx'
 
 
 def write_xlsx(result, path):
