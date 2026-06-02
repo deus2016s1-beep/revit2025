@@ -3,7 +3,7 @@ import re
 from ventcalc import config
 from ventcalc import revit_utils
 
-KEYS = ['z_narrow', 'z_expand', 'z_pass', 'z_branch', 'zeta', 'z']
+KEYS = ['z_narrow', 'z_expand', 'z_pass', 'z_branch', 'zeta', 'z', 'angle']
 SIMPLE_KINDS = ['tap', 'offset', 'cap', 'damper', 'fire_damper', 'backdraft_damper', 'inlet', 'outlet', 'grille', 'hood', 'deflector', 'other', 'unknown']
 
 
@@ -32,6 +32,8 @@ def format_comment(kind, values):
         return 'z_narrow=' + format_number(values.get('z_narrow', 0.0)) + '; z_expand=' + format_number(values.get('z_expand', 0.0))
     if kind == 'tee' or kind == 'cross':
         return 'z_pass=' + format_number(values.get('z_pass', 0.0)) + '; z_branch=' + format_number(values.get('z_branch', 0.0))
+    if kind == 'elbow':
+        return 'z=' + format_number(values.get('z', 0.0)) + '; angle=' + format_number(values.get('angle', 90))
     return 'z=' + format_number(values.get('z', 0.0))
 
 

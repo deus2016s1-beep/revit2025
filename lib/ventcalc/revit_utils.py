@@ -325,7 +325,7 @@ def size_number_to_m(value):
     return value / 1000.0
 
 
-def duct_dimensions_m(duct):
+def duct_parameter_dimensions_m(duct):
     diameter = param_double(duct, ['Диаметр', 'Diameter'], 0.0)
     width = param_double(duct, ['Ширина', 'Width'], 0.0)
     height = param_double(duct, ['Высота', 'Height'], 0.0)
@@ -333,13 +333,39 @@ def duct_dimensions_m(duct):
         return linear_param_to_m(diameter), 0.0, 0.0
     if width > 0 and height > 0:
         return 0.0, linear_param_to_m(width), linear_param_to_m(height)
+    return 0.0, 0.0, 0.0
+
+
+def duct_dimensions_m(duct):
+    param_diameter, param_width, param_height = duct_parameter_dimensions_m(duct)
+    text_diameter, text_width, text_height = parse_size_dimensions_m(duct_explicit_size_text(duct))
+    param_area = dimensions_area_m2(param_diameter, param_width, param_height)
+    text_area = dimensions_area_m2(text_diameter, text_width, text_height)
+    if param_area > 0 and text_area > 0:
+        diff = abs(param_area - text_area) / text_area
+        if diff > 0.05:
+            return text_diameter, text_width, text_height
+        return param_diameter, param_width, param_height
+    if param_area > 0:
+        return param_diameter, param_width, param_height
+    if text_area > 0:
+        return text_diameter, text_width, text_height
     return parse_size_dimensions_m(duct_size_raw_text(duct))
 
 
-def duct_size_raw_text(duct):
+def duct_explicit_size_text(duct):
     values = [
         param_text(duct, ['Размер', 'Size'], ''),
-        param_text(duct, ['ADSK_Размер', 'ADSK_Размер воздуховода'], ''),
+        param_text(duct, ['ADSK_Размер', 'ADSK_Размер воздуховода'], '')
+    ]
+    return ' '.join([value for value in values if value])
+
+
+def duct_size_raw_text(duct):
+    explicit = duct_explicit_size_text(duct)
+    if explicit:
+        return explicit
+    values = [
         element_name(duct),
         type_name(duct)
     ]
@@ -370,18 +396,49 @@ def parse_size_dimensions_m(text):
     numbers = re.findall(r'[0-9]+(?:\.[0-9]+)?', normalized)
     if len(numbers) >= 2 and ('x' in normalized):
         return 0.0, size_number_to_m(float(numbers[0])), size_number_to_m(float(numbers[1]))
-    if len(numbers) >= 1:
-        return size_number_to_m(float(numbers[0])), 0.0, 0.0
+    plausible = plausible_size_numbers(numbers)
+    if plausible:
+        return size_number_to_m(float(plausible[-1])), 0.0, 0.0
     return 0.0, 0.0, 0.0
 
 
-def duct_area_m2(duct):
-    diameter, width, height = duct_dimensions_m(duct)
+def plausible_size_numbers(numbers):
+    result = []
+    for text in numbers:
+        value = config_float(text)
+        if value >= 20.0 and value <= 3000.0:
+            result.append(text)
+        elif value > 0.02 and value <= 10.0:
+            result.append(text)
+    return result
+
+
+def config_float(text):
+    try:
+        return float(text)
+    except Exception:
+        return 0.0
+
+
+def dimensions_area_m2(diameter, width, height):
     if diameter > 0:
         return math.pi * diameter * diameter / 4.0
     if width > 0 and height > 0:
         return width * height
     return 0.0
+
+
+def dimensions_hydraulic_diameter_m(diameter, width, height):
+    if diameter > 0:
+        return diameter
+    if width > 0 and height > 0 and width + height > 0:
+        return 2.0 * width * height / (width + height)
+    return 0.0
+
+
+def duct_area_m2(duct):
+    diameter, width, height = duct_dimensions_m(duct)
+    return dimensions_area_m2(diameter, width, height)
 
 
 def duct_length_m(duct):
@@ -403,11 +460,42 @@ def duct_flow_m3s(duct):
 
 def hydraulic_diameter_m(duct):
     diameter, width, height = duct_dimensions_m(duct)
-    if diameter > 0:
-        return diameter
-    if width > 0 and height > 0 and width + height > 0:
-        return 2.0 * width * height / (width + height)
-    return 0.0
+    return dimensions_hydraulic_diameter_m(diameter, width, height)
+
+
+def duct_text_area_m2(duct):
+    diameter, width, height = parse_size_dimensions_m(duct_explicit_size_text(duct))
+    return dimensions_area_m2(diameter, width, height)
+
+
+def velocity_sanity_warning(duct, flow_m3s, calculated_velocity):
+    text = duct_explicit_size_text(duct)
+    if not text or flow_m3s <= 0:
+        return ''
+    text_area = duct_text_area_m2(duct)
+    param_diameter, param_width, param_height = duct_parameter_dimensions_m(duct)
+    param_area = dimensions_area_m2(param_diameter, param_width, param_height)
+    if text_area <= 0 or param_area <= 0:
+        return ''
+    text_velocity = flow_m3s / text_area
+    param_velocity = flow_m3s / param_area
+    if text_velocity <= 0:
+        return ''
+    diff = abs(param_velocity - text_velocity) / text_velocity
+    if diff > 0.05:
+        return u'Предупреждение: скорость по параметрам ' + format_warning_number(param_velocity) + u' м/с отличается от скорости по текстовому размеру ' + format_warning_number(text_velocity) + u' м/с больше чем на 5%; для расчета использован текстовый размер'
+    if calculated_velocity > 0:
+        calc_diff = abs(calculated_velocity - text_velocity) / text_velocity
+        if calc_diff > 0.05:
+            return u'Предупреждение: расчетная скорость ' + format_warning_number(calculated_velocity) + u' м/с отличается от скорости по текстовому размеру ' + format_warning_number(text_velocity) + u' м/с больше чем на 5%'
+    return ''
+
+
+def format_warning_number(value):
+    try:
+        return ('%.2f' % float(value)).rstrip('0').rstrip('.')
+    except Exception:
+        return '0'
 
 
 def element_id(element):

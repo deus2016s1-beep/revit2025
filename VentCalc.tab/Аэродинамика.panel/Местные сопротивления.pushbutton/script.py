@@ -57,7 +57,7 @@ class ZetaForm(Form):
         title.Size = Size(520, 32)
         self.Controls.Add(title)
         header1 = Label()
-        header1.Text = u'Тип'
+        header1.Text = u'Тип элемента'
         header1.Location = Point(20, 50)
         header1.Size = Size(220, 22)
         self.Controls.Add(header1)
@@ -67,7 +67,7 @@ class ZetaForm(Form):
         header2.Size = Size(120, 22)
         self.Controls.Add(header2)
         header3 = Label()
-        header3.Text = u'Ваше значение'
+        header3.Text = u'Записать значение'
         header3.Location = Point(420, 50)
         header3.Size = Size(140, 22)
         self.Controls.Add(header3)

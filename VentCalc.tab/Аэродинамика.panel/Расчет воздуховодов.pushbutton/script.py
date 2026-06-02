@@ -33,9 +33,19 @@ def print_calculation_table(output, result):
         ])
     output.print_md(u'## Критическая трасса VentCalc')
     if rows:
-        output.print_table(table_data=rows, columns=[u'Участок', u'Размер', u'Расход м³/ч', u'Длина', u'Скорость', u'Re', u'λ', u'Pv', u'R', u'R·l', u'Σζ', u'Z', u'ΔP'])
+        output.print_table(table_data=rows, columns=[u'Участок', u'Размер', u'Расход м³/ч', u'Длина', u'Скорость', u'Re', u'λ', u'Pv', u'R', u'R·l', u'Σζ', u'МС', u'ΔP'])
     else:
         output.print_md(u'Расчетные участки не найдены.')
+
+
+def print_sanity_warnings(output, result):
+    rows = []
+    for row in result.get('rows', []):
+        for warning in row.get('warnings', []):
+            rows.append([row.get('section', ''), row.get('duct_id', ''), warning])
+    if rows:
+        output.print_md(u'## Предупреждения проверки скоростей')
+        output.print_table(table_data=rows, columns=[u'Участок', u'ElementId воздуховода', u'Предупреждение'])
 
 
 def save_last_result(result, path):
@@ -90,6 +100,7 @@ def main():
         forms.alert(config.unicode_text(error), title=u'Расчет воздуховодов')
         return
     print_candidate_table(output, result)
+    print_sanity_warnings(output, result)
     print_calculation_table(output, result)
     totals = result.get('totals', {})
     if totals.get('total_pa', 0.0) <= 0.0:

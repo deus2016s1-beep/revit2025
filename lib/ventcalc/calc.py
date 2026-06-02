@@ -77,6 +77,7 @@ def dynamic_pressure(duct, settings):
 
 def duct_row(duct, index, settings):
     values = duct_values(duct, settings)
+    warning = revit_utils.velocity_sanity_warning(duct, values.get('flow_m3s', 0.0), values.get('velocity_ms', 0.0))
     row = {
         'index': index + 1,
         'section': str(index) + '-' + str(index + 1),
@@ -88,7 +89,8 @@ def duct_row(duct, index, settings):
         'local_zeta': 0.0,
         'local_pa': 0.0,
         'fittings': [],
-        'note': '',
+        'note': warning,
+        'warnings': [warning] if warning else [],
         'total_pa': values.get('friction_pa', 0.0)
     }
     row.update(values)
@@ -168,11 +170,12 @@ def selected_element_id(selected_ids):
 
 
 def find_start_candidates(data, selected_end_id):
+    component = connected_component_ids(data.get('graph', {}), selected_end_id)
     result = []
-    terminal_like = data.get('terminal_ids', []) + data.get('equipment_ids', [])
     duct_has_terminal = set()
+    terminal_like = data.get('terminal_ids', []) + data.get('equipment_ids', [])
     for element_id in terminal_like:
-        if element_id == selected_end_id:
+        if element_id == selected_end_id or element_id not in component:
             continue
         element = data['elements_by_id'][element_id]
         connected_ducts = connected_duct_ids(data, element_id)
@@ -182,14 +185,34 @@ def find_start_candidates(data, selected_end_id):
             result.append(element_id)
             for duct_id in connected_ducts:
                 duct_has_terminal.add(duct_id)
-    for duct_id in data.get('duct_ids', []):
-        if duct_id == selected_end_id:
+    has_real_start = len(result) > 0
+    for element_id in component:
+        if element_id == selected_end_id:
             continue
-        if duct_id in duct_has_terminal:
+        if len(data['graph'].get(element_id, [])) > 1:
             continue
-        if len(data['graph'].get(duct_id, [])) <= 1:
-            result.append(duct_id)
+        element = data['elements_by_id'][element_id]
+        if zeta.fitting_kind(element) == 'cap' and has_real_start:
+            continue
+        if element_id in data.get('duct_ids', []) and element_id in duct_has_terminal:
+            continue
+        if element_id not in result:
+            result.append(element_id)
     return unique_ids(result)
+
+
+def connected_component_ids(graph, start_id):
+    if start_id not in graph:
+        return set()
+    result = set([start_id])
+    stack = [start_id]
+    while stack:
+        current = stack.pop()
+        for next_id in graph.get(current, []):
+            if next_id not in result:
+                result.add(next_id)
+                stack.append(next_id)
+    return result
 
 
 def is_start_terminal(element):
@@ -319,10 +342,16 @@ def add_local_to_row(row, element, previous_duct, next_duct, pressure_duct, sett
 def choose_critical_path(paths):
     best = None
     best_pressure = -1.0
+    best_length = -1.0
     for path in paths:
         pressure = path.get('total_pa', 0.0)
-        if pressure > best_pressure:
+        length = make_totals(path.get('rows', []), 0.0).get('length_m', 0.0)
+        if pressure > best_pressure + 0.000001:
             best_pressure = pressure
+            best_length = length
+            best = path
+        elif abs(pressure - best_pressure) <= 0.000001 and length > best_length:
+            best_length = length
             best = path
     return best
 
@@ -366,21 +395,21 @@ def append_note(row, element, value):
 def local_resistance_name(element):
     kind = zeta.fitting_kind(element)
     if kind == 'elbow':
-        return u'отвод ' + str(zeta.elbow_angle(element)) + u'°'
+        return u'Отвод ' + str(zeta.elbow_angle(element)) + u'°'
     names = {
-        'transition': u'переход',
-        'tee': u'тройник',
-        'cross': u'крестовина',
-        'grille': u'решетка',
-        'hood': u'зонт',
-        'deflector': u'дефлектор',
-        'equipment': u'оборудование',
-        'inlet': u'вход',
-        'outlet': u'выход',
-        'cap': u'заглушка',
-        'damper': u'клапан',
-        'fire_damper': u'противопожарный клапан',
-        'backdraft_damper': u'обратный клапан'
+        'transition': u'Переход',
+        'tee': u'Тройник',
+        'cross': u'Крестовина',
+        'grille': u'Решетка',
+        'hood': u'Зонт',
+        'deflector': u'Дефлектор',
+        'equipment': u'Оборудование',
+        'inlet': u'Вход',
+        'outlet': u'Выход',
+        'cap': u'Заглушка',
+        'damper': u'Клапан',
+        'fire_damper': u'Противопожарный клапан',
+        'backdraft_damper': u'Обратный клапан'
     }
     return names.get(kind, revit_utils.element_name(element) or revit_utils.type_name(element) or kind)
 

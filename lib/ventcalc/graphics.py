@@ -97,3 +97,47 @@ def duct_velocity(duct):
     if area <= 0:
         return 0.0
     return flow / area
+
+
+def solid_fill_id(doc):
+    try:
+        fill = DB.FillPatternElement.GetFillPatternElementByName(doc, DB.FillPatternTarget.Drafting, '<Solid fill>')
+        if fill:
+            return fill.Id
+    except Exception:
+        fill = None
+    try:
+        collector = DB.FilteredElementCollector(doc).OfClass(DB.FillPatternElement)
+        for item in collector:
+            try:
+                pattern = item.GetFillPattern()
+                if pattern and pattern.IsSolidFill:
+                    return item.Id
+            except Exception:
+                continue
+    except Exception:
+        return DB.ElementId.InvalidElementId
+    return DB.ElementId.InvalidElementId
+
+
+def apply_color_settings(settings, color, weight, fill_id):
+    try:
+        settings.SetProjectionLineColor(color)
+    except Exception:
+        color = color
+    try:
+        settings.SetProjectionLineWeight(int(weight))
+    except Exception:
+        weight = weight
+    try:
+        if fill_id and fill_id != DB.ElementId.InvalidElementId:
+            settings.SetSurfaceForegroundPatternId(fill_id)
+            settings.SetSurfaceForegroundPatternColor(color)
+    except Exception:
+        fill_id = fill_id
+    try:
+        if fill_id and fill_id != DB.ElementId.InvalidElementId:
+            settings.SetCutForegroundPatternId(fill_id)
+            settings.SetCutForegroundPatternColor(color)
+    except Exception:
+        fill_id = fill_id

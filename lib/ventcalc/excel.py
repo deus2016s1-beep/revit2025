@@ -86,7 +86,7 @@ def csv_fallback_path(path):
 def worksheet_xml(result):
     rows = []
     headers = headers_list()
-    rows.append(row_xml(1, [u'Аэродинамический расчет системы вентиляции'], 1))
+    rows.append(row_xml(1, [u'Аэродинамический расчёт системы вентиляции'], 1))
     rows.append(row_xml(2, headers, 2))
     row_number = 3
     for row in result.get('rows', []):
@@ -158,7 +158,7 @@ def number_text(value):
 
 
 def headers_list():
-    return [u'№', u'Участок', u'Наименование', u'Размер', u'Расход, м³/ч', u'Длина, м', u'Площадь, м²', u'dэкв, м', u'Скорость, м/с', u'Re', u'λ', u'Pv, Па', u'R, Па/м', u'R·l, Па', u'Σζ', u'Z, Па', u'ΔP, Па', u'Примечание']
+    return [u'№', u'Участок', u'Наименование', u'Размер', u'Расход, м³/ч', u'Длина, м', u'Площадь, м²', u'Dэкв, м', u'Скорость, м/с', u'Re', u'λ', u'Pv, Па', u'R, Па/м', u'R·l, Па', u'Σζ', u'МС, Па', u'ΔP, Па', u'Примечание']
 
 
 def row_values(row):
