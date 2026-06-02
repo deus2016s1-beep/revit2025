@@ -15,7 +15,7 @@ from ventcalc import excel
 
 def print_calculation_table(output, result):
     rows = []
-    for row in result.get('rows', []):
+    for row in result.get('report_rows', result.get('rows', [])):
         rows.append([
             row.get('section', ''),
             row.get('size', ''),
@@ -40,7 +40,7 @@ def print_calculation_table(output, result):
 
 def print_sanity_warnings(output, result):
     rows = []
-    for row in result.get('rows', []):
+    for row in result.get('report_rows', result.get('rows', [])):
         for warning in row.get('warnings', []):
             rows.append([row.get('section', ''), row.get('duct_id', ''), warning])
     if rows:
@@ -55,7 +55,11 @@ def save_last_result(result, path):
         'critical_fitting_ids': result.get('critical_fitting_ids', []),
         'start_element_id': result.get('start_element_id'),
         'end_element_id': result.get('end_element_id'),
-        'rows': minimal_rows(result.get('rows', [])),
+        'rows': minimal_rows(result.get('detailed_rows', result.get('rows', []))),
+        'detailed_rows': audit_rows(result.get('detailed_rows', [])),
+        'report_rows': audit_rows(result.get('report_rows', result.get('rows', []))),
+        'candidate_summaries': result.get('candidate_summaries', []),
+        'local_resistance_audit': result.get('local_resistance_audit', []),
         'totals': result.get('totals', {}),
         'excel_path': path
     }
@@ -69,6 +73,18 @@ def minimal_rows(rows):
     return result
 
 
+def audit_rows(rows):
+    result = []
+    keys = ['index', 'section', 'duct_id', 'duct_ids', 'revit_ducts_count', 'name', 'size', 'flow_m3h', 'length_m', 'area_m2', 'diameter_m', 'velocity_ms', 're', 'lambda', 'pv_pa', 'r_pa_m', 'friction_pa', 'local_zeta', 'local_pa', 'total_pa', 'note', 'warnings', 'fittings']
+    for row in rows:
+        item = {}
+        for key in keys:
+            if key in row:
+                item[key] = row.get(key)
+        result.append(item)
+    return result
+
+
 
 def print_candidate_table(output, result):
     rows = []
@@ -77,6 +93,7 @@ def print_candidate_table(output, result):
             item.get('start_element_id', ''),
             item.get('start_name', ''),
             item.get('sections_count', 0),
+            item.get('revit_ducts_count', 0),
             round(item.get('length_m', 0.0), 2),
             round(item.get('friction_pa', 0.0), 2),
             round(item.get('local_pa', 0.0), 2),
@@ -84,7 +101,7 @@ def print_candidate_table(output, result):
         ])
     output.print_md(u'## Кандидаты критической трассы')
     if rows:
-        output.print_table(table_data=rows, columns=[u'Старт ElementId', u'Имя старта', u'Количество участков', u'Длина, м', u'Трение, Па', u'МС, Па', u'Итого, Па'])
+        output.print_table(table_data=rows, columns=[u'Старт ElementId', u'Имя старта', u'Количество участков', u'Воздуховодов Revit', u'Длина, м', u'Трение, Па', u'МС, Па', u'Итого, Па'])
     else:
         output.print_md(u'Кандидаты не найдены.')
 
@@ -117,7 +134,7 @@ def main():
     message = u'Расчет выполнен'
     message += u'\nСтарт: ElementId ' + str(result.get('start_element_id', ''))
     message += u'\nКонец: ElementId ' + str(result.get('end_element_id', ''))
-    message += u'\nУчастков: ' + str(len(result.get('rows', [])))
+    message += u'\nУчастков: ' + str(len(result.get('report_rows', result.get('rows', []))))
     message += u'\nДлина: ' + str(round(totals.get('length_m', 0.0), 2)) + u' м'
     message += u'\nТрение: ' + str(round(totals.get('friction_pa', 0.0), 2)) + u' Па'
     message += u'\nМС: ' + str(round(totals.get('local_pa', 0.0), 2)) + u' Па'

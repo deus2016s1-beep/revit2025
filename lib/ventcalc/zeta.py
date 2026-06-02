@@ -47,6 +47,14 @@ def format_number(value):
     return text
 
 
+def format_number_2(value):
+    try:
+        text = '%.2f' % float(value)
+    except Exception:
+        text = '0.00'
+    return text
+
+
 def fitting_text(fitting):
     parts = [
         revit_utils.param_text(fitting, ['ADSK_Наименование', 'Наименование', 'Name'], ''),

@@ -118,14 +118,20 @@ def calculate(doc, selected_ids=None, start_path=None):
     reserve_percent = config.to_float(settings.get('reserve_percent', 15.0), 15.0)
     if reserve_percent <= 0.0:
         reserve_percent = 15.0
-    rows = critical.get('rows', [])
-    for row in rows:
+    detailed_rows = critical.get('rows', [])
+    for row in detailed_rows:
         row['total_pa'] = row.get('friction_pa', 0.0) + row.get('local_pa', 0.0)
         row['total_with_reserve_pa'] = row['total_pa'] * (1.0 + reserve_percent / 100.0)
-    totals = make_totals(rows, reserve_percent)
+    report_rows = make_report_rows(detailed_rows)
+    for row in report_rows:
+        row['total_with_reserve_pa'] = row.get('total_pa', 0.0) * (1.0 + reserve_percent / 100.0)
+    totals = make_totals(report_rows, reserve_percent)
     start_id = critical.get('start_element_id')
+    local_audit = local_resistance_audit(report_rows)
     result = {
-        'rows': rows,
+        'rows': report_rows,
+        'report_rows': report_rows,
+        'detailed_rows': detailed_rows,
         'totals': totals,
         'settings': settings,
         'settings_start_path': start_path,
@@ -137,8 +143,9 @@ def calculate(doc, selected_ids=None, start_path=None):
         'start_element_name': element_display_name(data, start_id),
         'end_element_id': selected_end_id,
         'end_element_name': element_display_name(data, selected_end_id),
-        'diagnostics': make_diagnostics(data, starts, critical, rows, totals),
-        'candidate_summaries': candidate_summaries(paths, data)
+        'diagnostics': make_diagnostics(data, starts, critical, detailed_rows, totals),
+        'candidate_summaries': mark_selected_candidate(candidate_summaries(paths, data), start_id),
+        'local_resistance_audit': local_audit
     }
     return result
 
@@ -148,18 +155,27 @@ def candidate_summaries(paths, data):
     result = []
     for item in paths:
         start_id = item.get('start_element_id')
-        rows = item.get('rows', [])
-        totals = make_totals(rows, 0.0)
+        detailed_rows = item.get('rows', [])
+        report_rows = make_report_rows(detailed_rows)
+        totals = make_totals(report_rows, 0.0)
         result.append({
             'start_element_id': start_id,
             'start_name': element_display_name(data, start_id),
-            'sections_count': len(rows),
+            'sections_count': len(report_rows),
+            'revit_ducts_count': len(detailed_rows),
             'length_m': totals.get('length_m', 0.0),
             'friction_pa': totals.get('friction_pa', 0.0),
             'local_pa': totals.get('local_pa', 0.0),
-            'total_pa': totals.get('total_pa', 0.0)
+            'total_pa': totals.get('total_pa', 0.0),
+            'selected': False
         })
     return result
+
+
+def mark_selected_candidate(candidates, selected_start_id):
+    for item in candidates:
+        item['selected'] = item.get('start_element_id') == selected_start_id
+    return candidates
 
 def selected_element_id(selected_ids):
     if not selected_ids:
@@ -331,10 +347,22 @@ def nearest_duct_after(path_ids, index, data):
 
 def add_local_to_row(row, element, previous_duct, next_duct, pressure_duct, settings, zeta_data):
     value = zeta.fitting_zeta(element, previous_duct, next_duct, zeta_data)
-    pressure = value * dynamic_pressure(pressure_duct, settings)
+    pv = dynamic_pressure(pressure_duct, settings)
+    pressure = value * pv
+    kind = zeta.fitting_kind(element)
+    item = {
+        'id': element.Id.IntegerValue,
+        'kind': kind,
+        'type': local_resistance_name(element),
+        'zeta': value,
+        'pv_pa': pv,
+        'pressure_pa': pressure,
+        'decision': 'z=' + zeta.format_number_2(value),
+        'reason': local_resistance_reason(element, kind)
+    }
     row['local_zeta'] += value
     row['local_pa'] += pressure
-    row['fittings'].append({'id': element.Id.IntegerValue, 'kind': zeta.fitting_kind(element), 'zeta': value, 'pressure_pa': pressure})
+    row['fittings'].append(item)
     row['element_ids'].append(element.Id.IntegerValue)
     append_note(row, element, value)
 
@@ -368,6 +396,95 @@ def make_totals(rows, reserve_percent):
     }
 
 
+def make_report_rows(detailed_rows):
+    result = []
+    current = None
+    for row in detailed_rows:
+        if current is None or not can_merge_rows(current, row):
+            current = copy_report_row(row)
+            result.append(current)
+        else:
+            merge_report_row(current, row)
+    renumber_sections(result)
+    return result
+
+
+def can_merge_rows(current, row):
+    if current.get('size', '') != row.get('size', ''):
+        return False
+    if abs(current.get('flow_m3h', 0.0) - row.get('flow_m3h', 0.0)) > 1.0:
+        return False
+    if abs(current.get('area_m2', 0.0) - row.get('area_m2', 0.0)) > 0.000001:
+        return False
+    if abs(current.get('velocity_ms', 0.0) - row.get('velocity_ms', 0.0)) > 0.05:
+        return False
+    return True
+
+
+def copy_report_row(row):
+    result = {}
+    for key in row:
+        value = row[key]
+        if isinstance(value, list):
+            result[key] = list(value)
+        elif isinstance(value, dict):
+            result[key] = config.copy_dict(value)
+        else:
+            result[key] = value
+    result['duct_ids'] = [row.get('duct_id')]
+    result['revit_ducts_count'] = 1
+    return result
+
+
+def merge_report_row(target, row):
+    target['length_m'] += row.get('length_m', 0.0)
+    target['friction_pa'] += row.get('friction_pa', 0.0)
+    target['local_zeta'] += row.get('local_zeta', 0.0)
+    target['local_pa'] += row.get('local_pa', 0.0)
+    target['total_pa'] = target.get('friction_pa', 0.0) + target.get('local_pa', 0.0)
+    target['duct_ids'].append(row.get('duct_id'))
+    target['revit_ducts_count'] += 1
+    append_unique_list(target, 'element_ids', row.get('element_ids', []))
+    append_unique_list(target, 'warnings', row.get('warnings', []))
+    target.setdefault('fittings', []).extend(row.get('fittings', []))
+    if row.get('note'):
+        if target.get('note'):
+            target['note'] += '; ' + row.get('note')
+        else:
+            target['note'] = row.get('note')
+
+
+def append_unique_list(target, key, values):
+    if key not in target:
+        target[key] = []
+    for value in values:
+        if value not in target[key]:
+            target[key].append(value)
+
+
+def renumber_sections(rows):
+    for index in range(len(rows)):
+        rows[index]['index'] = index + 1
+        rows[index]['section'] = str(index) + '-' + str(index + 1)
+
+
+def local_resistance_audit(rows):
+    result = []
+    for row in rows:
+        for item in row.get('fittings', []):
+            result.append({
+                'section': row.get('section', ''),
+                'element_id': item.get('id'),
+                'type': item.get('type', ''),
+                'decision': item.get('decision', ''),
+                'zeta': item.get('zeta', 0.0),
+                'pv_pa': item.get('pv_pa', 0.0),
+                'local_pa': item.get('pressure_pa', 0.0),
+                'reason': item.get('reason', '')
+            })
+    return result
+
+
 def make_diagnostics(data, starts, critical, rows, totals):
     first_rows = []
     for row in rows[:5]:
@@ -385,7 +502,7 @@ def make_diagnostics(data, starts, critical, rows, totals):
 
 
 def append_note(row, element, value):
-    text = local_resistance_name(element) + ' z=' + zeta.format_number(value)
+    text = local_resistance_name(element) + ' ζ=' + zeta.format_number_2(value)
     if row.get('note'):
         row['note'] += '; ' + text
     else:
@@ -412,6 +529,22 @@ def local_resistance_name(element):
         'backdraft_damper': u'Обратный клапан'
     }
     return names.get(kind, revit_utils.element_name(element) or revit_utils.type_name(element) or kind)
+
+
+def local_resistance_reason(element, kind):
+    name = revit_utils.param_text(element, ['ADSK_Наименование', 'Наименование', 'Name'], '')
+    if name:
+        return u'ADSK_Наименование/Наименование: ' + name
+    family = revit_utils.family_name(element)
+    if family:
+        return u'Имя семейства: ' + family
+    type_name = revit_utils.type_name(element)
+    if type_name:
+        return u'Имя типа: ' + type_name
+    comments = revit_utils.comments(element)
+    if comments:
+        return u'Комментарии: ' + comments
+    return u'Классификация: ' + kind
 
 
 def element_display_name(data, element_id):
