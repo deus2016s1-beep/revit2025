@@ -1,0 +1,15 @@
+# VentCalc text-only repository policy
+*.png
+*.jpg
+*.jpeg
+*.xlsx
+*.zip
+
+# Python / pyRevit runtime artifacts
+__pycache__/
+*.pyc
+
+# Local VentCalc runtime data
+ventcalc_settings.json
+ventcalc_zeta.json
+ventcalc_last_result.json
